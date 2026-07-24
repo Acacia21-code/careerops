@@ -61,8 +61,20 @@ huggingface/
 .supabase-cli-home/
 docs/_internal/
 career-ops-ux/
-supabase/
 .kaggle_upload_train/
+
+# Local Supabase CLI junk / linked project dumps — never commit
+supabase/.temp/
+supabase/**/.temp/
+
+# Allow published edge functions + schema; ignore anything else under supabase/
+supabase/*
+!supabase/functions/
+!supabase/functions/**
+!supabase/schema.sql
+!supabase/boards.example.json
+!supabase/config.toml
+!supabase/README.md
 
 # Local deploy secrets for the web app
 web/config.js
@@ -74,11 +86,11 @@ web/config.js
 web/*.bak*
 web/*.preview*
 
-# Training/eval — private vault only, never re-add to public
+# Training/eval datasets — private vault only (code lives under training/)
 data/
 eval/
 evalkernel/
-kernel/
+/kernel/
 
 # Never re-add train tooling to public
 scripts/assemble*.py

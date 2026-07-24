@@ -129,54 +129,75 @@ Drop files under `docs/images/` and link them here when ready:
 
 ---
 
-## Quick start (self-host)
+## Architecture
+
+```mermaid
+flowchart LR
+  spa[web_SPA_HTML]
+  edges[supabase_functions_TS]
+  skill[npm_agent_skill]
+  hf[HF_CareerOps_4B]
+  spa --> edges
+  skill --> spa
+  edges --> hf
+```
+
+| Public in this repo | Private to you |
+|---------------------|----------------|
+| SPA (`web/`), edge function source (`supabase/functions/`), schema SQL, agent skill, training *code* | Live Supabase project, API keys, operator data, optional custom ATS board lists |
+| Model **weights** on Hugging Face | Training datasets / résumé-derived eval sets |
+
+Search is a **configurable ATS addon** (Greenhouse / Ashby / Lever-style public JSON). The product value is the ops loop (board → decide → tailor → sent), not owning the largest job spider. You can also **Add role** / paste from any external search tool — CareerOps does not auto-apply.
+
+---
+
+## Self-host
 
 ```bash
 git clone https://github.com/TelivityAI/careerops.git
 cd careerops
-cp web/config.example.js web/config.js
-# edit web/config.js → YOUR Supabase URL + anon/publishable key
 
-./scripts/deploy-web.sh
+# 1) Web config
+cp web/config.example.js web/config.js
+# edit web/config.js → YOUR Supabase URL + anon key
+
+# 2) Database
+# Paste supabase/schema.sql into the Supabase SQL editor (Auth enabled).
+
+# 3) Link + deploy edges then web
+export SUPABASE_ACCESS_TOKEN=…          # from `npx supabase login` / dashboard
+export SUPABASE_PROJECT_REF=your_ref    # Project Settings → General
+npm run deploy                          # functions then web (or split below)
+# npm run deploy:functions
+# npm run deploy:web
 ```
 
-That deploys `web/` to Vercel. Any static host works if you serve `web/` with your `config.js`.
+Optional free-tier secrets on the project: `FREE_AI_ENDPOINT`, `FREE_AI_TOKEN`, `FREE_AI_MODEL`, `FREE_AI_ALLOW` (`*` = all authenticated users).
+
+Job search boards: copy `supabase/boards.example.json` into profile field `ats_boards` (JSON), or pass `{ "boards": { … } }` when invoking `run-search-mt`.
+
+`web/config.js` is gitignored — never commit real keys.
 
 ### What this repo includes
 
 | Path | Purpose |
 |------|---------|
 | `web/` | The dashboard SPA |
-| `.agents/skills/careerops/` | Open Agent Skill (CLI symlinks under `.claude` / `.codex` / `.opencode`) |
+| `supabase/functions/` | Edge functions (match, rewrite, chat, free AI, search) |
+| `supabase/schema.sql` | Minimal tables + RLS for self-host |
+| `training/` | Optional train/eval *code* (datasets not included) |
+| `.agents/skills/careerops/` | Open Agent Skill |
 | `packages/careerops` | `npx @telivity/careerops init` |
-| `docs/SKILL.md` | Public skill overview |
-| `scripts/deploy-web.sh` | One-command Vercel deploy |
+| `scripts/deploy*.sh` | Deploy helpers |
 | `LICENSE` | Apache-2.0 |
-| `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` | Community health |
 
 ### What you must bring
 
-Cloning the SPA alone is **not** a full backend:
-
-1. **Supabase** project with Auth (email and/or Google), RLS, tables used by the client (`mt_profiles`, `mt_roles`, `mt_reports`, `mt_events`), and a `reports` storage bucket if you use Jobscan PDF attach.  
-2. **Edge functions** the client calls: `run-search-mt`, `fetch-jd`, `resume-match`, `resume-rewrite`, `chat`, `ai-free`, (optional) `humanize` — with your own secrets.  
-3. **`web/config.js`** (gitignored) — never commit real keys to a public fork.
+1. A **Supabase** project (Auth, schema from `schema.sql`, optional `reports` storage bucket).  
+2. **Secrets / tokens** for deploy (`SUPABASE_ACCESS_TOKEN`) and optional free AI.  
+3. A **static host** (Vercel via `npm run deploy:web`, or any host serving `web/`).  
 
 The hosted demo is Telivity’s instance. Forks should use **their** project, not the demo credentials.
-
----
-
-## Architecture (short)
-
-```text
-Browser (static SPA)
-   │  Supabase JS (auth + Postgres + storage)
-   ▼
-Your Supabase project
-   │  Edge Functions (search, JD fetch, match, rewrite, chat, free AI)
-   ▼
-Optional model providers (Claude / Kimi / OpenAI-compatible) via YOUR keys or free tier
-```
 
 - **UI IA:** board → drawer (decide) → builder (write). Escape hatch: `?legacy=1` for the old centered role panel.  
 - **Mobile:** board + drawer; builder asks for a larger screen.  
@@ -199,10 +220,10 @@ Installs `.agents/skills/careerops/` and symlinks for common agent CLIs. See [do
 
 | | |
 |--|--|
-| **This repo** | Forkable **dashboard** (deployable SPA) |
+| **This repo** | Forkable **dashboard** + edge sources + optional `training/` code |
 | **Hugging Face** | **CareerOps-4B** weights ([adapter](https://huggingface.co/telivity/CareerOps-4B) / [merged](https://huggingface.co/telivity/CareerOps-4B-merged) / [GGUF](https://huggingface.co/telivity/CareerOps-4B-GGUF)) |
 
-Training/eval corpora and kernels are **not** in this public repo — they live in Telivity’s private ops vault. Public model weights are on Hugging Face only.
+Training **datasets** are not in this repo (see `training/README.md`). Public model weights are on Hugging Face only.
 
 The live UI’s match/rewrite path goes through Supabase edge functions — it does **not** load HF weights in the browser.
 

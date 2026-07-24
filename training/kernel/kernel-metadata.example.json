@@ -1,0 +1,16 @@
+{
+  "id": "telivity/careerops-4b-training",
+  "title": "CareerOps-4B training",
+  "code_file": "careerops-4b-training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "telivity/careerops-training-set"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

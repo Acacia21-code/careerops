@@ -1148,7 +1148,7 @@ function parseMatchAssessment(text, method){
   if(!m) throw new Error('no JSON in reply')
   const p=JSON.parse(m[0])
   const score=Math.max(0,Math.min(100,Math.round(Number(p.score)||0)))
-  return {match_score:score, method, summary:String(p.summary||''), present:(p.strengths||[]).map(String).slice(0,8), missing:(p.gaps||[]).map(String).slice(0,8)}
+  return {match_score:score, method, summary:String(p.summary||''), present:(p.strengths||[]).map(String).slice(0,8), missing:sanitizeGapLabels((p.gaps||[]).map(String)).slice(0,8)}
 }
 function preferClientOpenai(){
   const o=loadOpenaiPrefs()
@@ -1209,7 +1209,11 @@ async function invokeChat(messages){
     return { reply:out.text, method:'openai-compat' }
   }
   const { data, error } = await sb.functions.invoke('chat',{ body:Object.assign({ messages }, byoEdgeExtras()) })
-  if(error||data?.error) throw new Error(data?.error||error?.message||'chat failed')
+  if(data && data.error){
+    return data // soft codes — Review/chat UI maps via mapRewriteSoftError
+  }
+  if(error) throw new Error((await fnMsg(error))||error.message||'chat failed')
+  if(!data) throw new Error('chat failed — empty response')
   return data
 }
 // Cheap keyword overlap (no LLM) — T26
@@ -1427,7 +1431,7 @@ function showApp(){
 }
 function gateChat(){ $('chatbtn').classList.remove('hidden') }  // free tier means chat works for everyone
 
-// ☕ Donations — CareerOps is free forever; this shows only once Dušan supplies his Stripe Payment Link URL
+// Donations — CareerOps is free forever; shown when CAREEROPS_CONFIG.donateUrl is set
 
 let CHATMSGS=[], CHATMETHOD='claude'
 $('chatbtn').onclick=()=>{ $('chat').classList.remove('hidden'); renderChat(); $('chatin').focus() }
@@ -1743,8 +1747,9 @@ function buildEvaluatePack(role, matchData){
   const ghost=estimateGhostRisk(role)
   const deal=findDealBreakers(jd)
   const age=roleAgeDays(role)
+  // Prefer explicit match payload, else canonical (latest match report / role) — never materials frac.
   const score = matchData?.match_score!=null ? rp2ParseMatchPct(matchData.match_score)
-    : rp2ParseMatchPct(role?.match_score)
+    : (CURROLE?.id===role?.id ? rp2CanonicalMatchScore() : rp2ParseMatchPct(role?.match_score))
   const missing = Array.isArray(matchData?.missing) ? matchData.missing
     : (Array.isArray(RP2LASTMISS)?RP2LASTMISS:[])
   const present = Array.isArray(matchData?.present) ? matchData.present : []
@@ -1923,7 +1928,7 @@ async function load(){
       const staleHtml = stale==null ? '' : (stale>=7
         ? `<span class="stale"><span class="dot-stale"></span>${stale}d</span>`
         : `<span class="stale">${stale}d</span>`)
-      const doc = HASDOC.has(r.id) ? (isSent(r.id) ? '<span class="doc">✓ sent</span>' : '<span class="doc">PDF</span>') : ''
+      const doc = HASDOC.has(r.id) ? (isSent(r.id) ? `<span class="doc" title="Sent version on file">✓ sent</span>` : '<span class="doc">PDF</span>') : ''
       const vHtml = v ? `<span class="verdict ${esc(v)}">${esc(v[0].toUpperCase()+v.slice(1))}</span>` : ''
       const sn=scoreNum(r)
       const mHtml = sn>=0 ? `<span class="match-pill" title="Match score">${sn}%</span>` : ''
@@ -1978,11 +1983,41 @@ function rp2ClearErr(){
   if($('bv_err')) $('bv_err').textContent=''
   if($('bv_err_empty')) $('bv_err_empty').textContent=''
 }
-function mapRewriteSoftError(code){
+function hasStoredByoKey(){
+  const o=typeof loadOpenaiPrefs==='function' ? loadOpenaiPrefs() : {}
+  return !!(PROFILE?.ai_key || PROFILE?.kimi_key || o?.key)
+}
+function mapRewriteSoftError(code, extra){
   const c=String(code||'')
+  const tried=(extra?.tried||[]).filter(Boolean)
+  if(c==='byo_failed'){
+    const detail=String(extra?.detail||'').trim()
+    const base = tried.length
+      ? `Your saved ${tried.join(' / ')} key failed on this request. Re-check it in Settings (wrong/expired key, or provider outage) — this is not a free-tier issue.`
+      : 'Your saved AI key failed on this request. Re-check Claude / Kimi / OpenAI-compatible in Settings.'
+    return detail ? base+' '+detail : base
+  }
   if(c==='free_limit') return FREE_LIMIT_MSG
-  if(c==='free_unavailable'||c==='free_not_enabled'||c==='no_key') return FREE_DOWN_MSG
+  if(c==='free_unavailable'||c==='free_not_enabled'||c==='no_key'){
+    // Never tell someone who already saved keys to “add a key”.
+    if(hasStoredByoKey()){
+      return 'Your saved AI key did not complete this request. Re-check Claude / Kimi / OpenAI-compatible in Settings, then try again.'
+    }
+    return FREE_DOWN_MSG
+  }
   return c
+}
+/** Drop junk gap tokens (www, stopwords, 1–2 char fragments) before Worth-adding UI. */
+function sanitizeGapLabels(list){
+  const STOP=new Set('a an the and or of to in for with on at by as is are be will you your our we they this that role team work experience years including from into about their them who what when where how all any can may must should more most other than then us it its need needs required requirements www http https com net org html php asp job jobs apply click here etc'.split(' '))
+  return (list||[]).map(x=>String(x||'').trim()).filter(t=>{
+    if(t.length<3 || t.length>48) return false
+    const low=t.toLowerCase()
+    if(STOP.has(low)) return false
+    if(/^https?:/i.test(t) || /\.(com|net|org)\b/i.test(t)) return false
+    if(/^\d+$/.test(t)) return false
+    return true
+  })
 }
 
 
@@ -2256,12 +2291,10 @@ $('rp_upload').onclick = async ()=>{
     if(jstext){ const m=jstext.match(/match\s*(?:rate|score)\D{0,20}(\d{1,3})\s*%/i) || jstext.match(/(\d{1,3})\s*%\s*match/i)
       if(m){ const n=parseInt(m[1],10); if(n>0&&n<=100) jsScore=n } }
     if(jsScore!=null){
-      await sb.from('mt_roles').update({ match_score: jsScore+'%' }).eq('id',CURROLE.id)
-      if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score=jsScore+'%'
-      $('rp_co').textContent=(CURROLE.company||'')+' · '+jsScore+'% match (Jobscan)'
-      load()
+      // Jobscan's own % is informational — do not overwrite canonical CareerOps match on the card.
+      $('rp_co').textContent=(CURROLE.company||'')+(CURROLE.match_score?' · '+CURROLE.match_score+' match':'')+' · Jobscan '+jsScore+'%'
     }
-    $('rp_jdstate').textContent = jstext ? ('· Jobscan report attached'+(jsScore!=null?' — '+jsScore+'% saved to the card':'')+' — ✨ Tailor resume will now use its findings') : '· Jobscan PDF attached (text couldn’t be read — tailoring will use the JD only)'
+    $('rp_jdstate').textContent = jstext ? ('· Jobscan report attached'+(jsScore!=null?' — Jobscan '+jsScore+'% (separate from CareerOps match)':'')+' — ✨ Tailor resume will now use its findings') : '· Jobscan PDF attached (text couldn’t be read — tailoring will use the JD only)'
     loadSaved(CURROLE.id)
   }catch(err){ $('rp_err').textContent=await fnMsg(err) }
   b.disabled=false; b.textContent=o
@@ -2302,6 +2335,7 @@ async function openRole2(id){
   if($('rp2_apply')){ $('rp2_apply').style.display=CURROLE.url?'':'none'; if(CURROLE.url) $('rp2_apply').href=CURROLE.url }
   if($('rp2_err')) $('rp2_err').textContent=''
   if($('rp2_scorebox')) $('rp2_scorebox').classList.add('hidden')
+  // Provisional paint from card — async hydrate below overwrites with latest match report (canonical).
   rp2PaintMatchPct(hasPct ? parseInt(CURROLE.match_score,10) : null)
   if($('dw_frac')) $('dw_frac').innerHTML='—<small> in materials</small>'
   if($('dw_basis')) $('dw_basis').textContent='Coverage appears after a match check.'
@@ -2351,10 +2385,14 @@ async function openRole2(id){
       const row=data&&data[0]
       if(!row || CURROLE?.id!==id) return
       const g=row.missing_keywords
-      if(Array.isArray(g)&&g.length) RP2LASTMISS=g.slice()
+      if(Array.isArray(g)&&g.length) RP2LASTMISS=sanitizeGapLabels(g)
       const score = (typeof row.match_score==='number') ? row.match_score
-        : parseInt(String(CURROLE.match_score||row.match_score||''),10)
+        : rp2ParseMatchPct(row.match_score)
       if(!isNaN(score)){
+        const roleN = rp2ParseMatchPct(CURROLE.match_score)
+        if(roleN !== score){
+          try{ await sb.from('mt_roles').update({ match_score: score+'%' }).eq('id', id) }catch(_e){}
+        }
         rp2ShowScore({ match_score:score, missing:Array.isArray(g)?g:[], summary:'', method:'restore' }, 'saved check · ')
       } else if(Array.isArray(g)&&g.length){
         rp2RenderGaps(); rp2GenNote()
@@ -2532,20 +2570,31 @@ function rp2ParseMatchPct(raw){
   if(typeof raw==='number') return raw
   return parseInt(String(raw),10)
 }
-function rp2LastKnownScore(){
+/** One honest number: latest match report wins, then role / map. Never invent from materials frac. */
+function rp2CanonicalMatchScore(){
+  const latest=(RP2ROWS||[]).find(r=>r.kind==='match' && r.match_score!=null)
+  const fromReport = rp2ParseMatchPct(latest?.match_score)
+  if(!isNaN(fromReport)) return fromReport
   const fromRole = rp2ParseMatchPct(CURROLE?.match_score)
   if(!isNaN(fromRole)) return fromRole
-  const fromMap = CURROLE?.id!=null ? rp2ParseMatchPct(ROLESMAP[CURROLE.id]?.match_score) : NaN
-  if(!isNaN(fromMap)) return fromMap
-  const fromDw = rp2ParseMatchPct(($('dw_matchpct')?.textContent||'').replace('%',''))
-  if(!isNaN(fromDw)) return fromDw
-  const fromBv = rp2ParseMatchPct(($('bv_matchpct')?.textContent||'').replace('%',''))
-  if(!isNaN(fromBv)) return fromBv
-  const latest=(RP2ROWS||[]).find(r=>r.kind==='match' && r.match_score!=null)
-  return rp2ParseMatchPct(latest?.match_score)
+  return CURROLE?.id!=null ? rp2ParseMatchPct(ROLESMAP[CURROLE.id]?.match_score) : NaN
+}
+function rp2LastKnownScore(){ return rp2CanonicalMatchScore() }
+function rp2SyncMatchEverywhere(scoreNum, { ringCap=null, reloadBoard=false }={}){
+  const n = rp2ParseMatchPct(scoreNum)
+  if(isNaN(n) || !CURROLE){ rp2PaintMatchPct(null); return null }
+  const label = n+'%'
+  CURROLE.match_score = label
+  if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score = label
+  rp2PaintMatchPct(n)
+  try{ rp2Ring(label, ringCap!=null ? ringCap : 'Last check') }catch(_e){}
+  const pill = document.querySelector(`.cardlet[data-id="${CURROLE.id}"] .match-pill`)
+  if(pill){ pill.textContent = label; pill.title = 'Match score' }
+  else if(reloadBoard) try{ load() }catch(_e){}
+  return n
 }
 function rp2PaintMatchPct(scoreNum){
-  const n = (scoreNum==null || scoreNum==='') ? rp2LastKnownScore() : rp2ParseMatchPct(scoreNum)
+  const n = (scoreNum==null || scoreNum==='') ? rp2CanonicalMatchScore() : rp2ParseMatchPct(scoreNum)
   const has = !isNaN(n)
   const label = has ? (n+'%') : '—'
   const top = has ? (`Match score ${n}%`) : 'Match score —'
@@ -2564,28 +2613,35 @@ function rp2PaintMatchPct(scoreNum){
 async function rp2HydrateBuilderScore(){
   const id = CURROLE?.id
   if(!id) return
-  const known = rp2LastKnownScore()
-  if(!isNaN(known)){
-    rp2PaintMatchPct(known)
-    return
-  }
   try{
     const { data } = await sb.from('mt_reports').select('match_score,missing_keywords').eq('role_id',id).eq('kind','match').order('created_at',{ascending:false}).limit(1)
     if(CURROLE?.id!==id) return
     const row = data && data[0]
-    if(!row){ rp2PaintMatchPct(null); return }
+    if(!row){
+      const known = rp2CanonicalMatchScore()
+      if(!isNaN(known)) rp2SyncMatchEverywhere(known, { ringCap:'On card' })
+      else rp2PaintMatchPct(null)
+      return
+    }
     const g = row.missing_keywords
-    if(Array.isArray(g) && g.length) RP2LASTMISS = g.slice()
+    if(Array.isArray(g) && g.length) RP2LASTMISS = sanitizeGapLabels(g)
     const score = (typeof row.match_score==='number') ? row.match_score
-      : rp2ParseMatchPct(CURROLE.match_score || row.match_score)
+      : rp2ParseMatchPct(row.match_score)
     if(!isNaN(score)){
+      // Latest match report is canonical — heal stale role/card drift.
+      const roleN = rp2ParseMatchPct(CURROLE.match_score)
+      if(roleN !== score){
+        try{ await sb.from('mt_roles').update({ match_score: score+'%' }).eq('id', id) }catch(_e){}
+      }
       rp2ShowScore({ match_score:score, missing:Array.isArray(g)?g:[], summary:'', method:'restore' }, 'saved check · ')
     } else {
       renderMaterialsGaps()
       rp2PaintMatchPct(null)
     }
   }catch(_e){
-    rp2PaintMatchPct(null)
+    const known = rp2CanonicalMatchScore()
+    if(!isNaN(known)) rp2PaintMatchPct(known)
+    else rp2PaintMatchPct(null)
   }
 }
 function rp2PaintMaterialsScore(extraBasis){
@@ -2616,13 +2672,15 @@ function rp2ShowScore(data, contextNote){
   const score=data.match_score
   const scoreNum = rp2ParseMatchPct(score)
   const hasScore = !isNaN(scoreNum)
-  RP2LASTMISS=Array.isArray(data.missing)?data.missing.slice():[]
-  if(hasScore && CURROLE){
-    CURROLE.match_score = scoreNum+'%'
-    if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score = scoreNum+'%'
+  RP2LASTMISS=sanitizeGapLabels(Array.isArray(data.missing)?data.missing:[])
+  if(hasScore){
+    rp2SyncMatchEverywhere(scoreNum, {
+      ringCap: data.method==='restore' ? 'Last check' : 'Just checked',
+      reloadBoard: true
+    })
+  } else {
+    rp2PaintMatchPct(null)
   }
-  try{ rp2Ring(score+'%', data.method==='restore' ? 'Last check' : 'Just checked') }catch(_e){}
-  rp2PaintMatchPct(hasScore ? scoreNum : null)
   const story = (data.summary&&String(data.summary).trim())
     || (data.method==='keywords'
       ? 'Keyword overlap vs your resume — use gaps below, then build a pack.'
@@ -2635,7 +2693,10 @@ function rp2ShowScore(data, contextNote){
     if(data.summary&&String(data.summary).trim() && data.summary!==story) bits.push(String(data.summary).trim())
     if(hasScore){
       const ctx=contextNote?` (${String(contextNote).replace(/\s*·\s*$/,'').trim()})`:''
-      bits.push(`Keyword overlap vs your resume: ${scoreNum}%${ctx}.`)
+      const how = data.method==='keywords' ? 'Keyword overlap vs your resume'
+        : data.method==='restore' ? 'Saved match score'
+        : 'Match score'
+      bits.push(`${how}: ${scoreNum}%${ctx}.`)
     }
     $('rp2_summary').textContent=bits.join(' ')
   }
@@ -3095,11 +3156,8 @@ function rp2PatchLatestMatch(score){
 async function rp2PersistScore(score, missing){
   await sb.from('mt_roles').update({ match_score: score+'%' }).eq('id',CURROLE.id)
   await sb.from('mt_reports').insert({ role_id:CURROLE.id, kind:'match', match_score:score, missing_keywords:missing||[] })
-  if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score=score+'%'
-  if(CURROLE) CURROLE.match_score=score+'%'
-  // Ring/truth already set in rp2ShowScore — keep them authoritative
-  rp2Ring(score+'%', 'Just checked')
-  load(); await rp2LoadVers(CURROLE.id)
+  rp2SyncMatchEverywhere(score, { ringCap:'Just checked', reloadBoard:true })
+  await rp2LoadVers(CURROLE.id)
 }
 async function rp2MatchText(text, btn, contextNote){
   $('rp2_err').textContent=''
@@ -3148,11 +3206,42 @@ function rp2HumanVerName(r){
   if(r.kind==='jobscan') return `${co} — ${role} — Jobscan — ${when}`
   return `${co} — ${role} — ${when}`
 }
+/** Named sent artifact: answers "what did I send to X?" in <10s. */
+function rp2SentArtifactName(r){
+  const co=(CURROLE?.company||'').trim()||'Company'
+  const when=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric'})
+  const kind=r?.kind==='cover'?'cover':'resume'
+  return `${co} · sent · ${when} · ${kind}`
+}
+function rp2SentChipLabel(r){
+  const custom = r?.id ? rp2VerNames()[r.id] : ''
+  if(custom && /sent/i.test(custom)) return '✓ '+custom
+  const co=(CURROLE?.company||'').trim()||'Company'
+  const when=new Date().toLocaleString('en-US',{month:'short',day:'numeric'})
+  return `✓ sent · ${co} · ${when}`
+}
+function rp2MarkVersionSent(id, on){
+  const r=RP2ROWS.find(x=>x.id==id); if(!r) return false
+  if(on && !confirm('Mark this version Sent? The draft freezes (read-only) and is named with company + date so you can find it later.')) return false
+  setVerSent(id, on)
+  if(on){
+    rp2SaveVerName(id, rp2SentArtifactName(r))
+    if(CURROLE) setSent(CURROLE.id, true)
+  } else if(CURROLE && !(RP2ROWS||[]).some(x=>(x.kind==='resume'||x.kind==='cover') && isVerSent(x.id) && x.id!==id)){
+    setSent(CURROLE.id, false)
+  }
+  if(RP2EDIT && RP2EDIT.id===id) applySentFreezeUI()
+  rp2LoadVers(CURROLE.id); load()
+  logEvent(on?'version_sent_freeze':'version_sent_unfreeze', CURROLE?.id, { ver:id, name: on ? rp2SentArtifactName(r) : null })
+  return true
+}
 function rp2VerLabel(r, vnum, { latest=false }={}){
   const custom=rp2VerNames()[r.id]
   const isPdf=r.kind==='jobscan'&&r.jd_text
   const name=custom || rp2HumanVerName(r)
-  const sent = (r.kind==='resume'||r.kind==='cover') && isVerSent(r.id) ? ' <span class="sent on" style="margin-left:6px">✓ sent · frozen</span>' : ''
+  const sent = (r.kind==='resume'||r.kind==='cover') && isVerSent(r.id)
+    ? ` <span class="sent on" style="margin-left:6px" title="Sent artifact">${esc(custom && /sent/i.test(custom) ? '✓ sent' : '✓ sent · frozen')}</span>`
+    : ''
   return `<span class="rp2-vername">${esc(name)}</span>${latest?' <span class="muted">· Latest</span>':''}${isPdf?' (PDF)':''}${sent}`
 }
 function rp2VerRow(r, vnum, { latest=false, scoreFallback=null }={}){
@@ -3228,15 +3317,9 @@ function rp2BindVers(root){
     rp2SaveVerName(id, next.trim()); rp2LoadVers(CURROLE.id)
   })
   root.querySelectorAll('[data-v2sent]').forEach(b=>b.onclick=()=>{
-    const id=+b.dataset.v2sent, r=RP2ROWS.find(x=>x.id==id); if(!r) return
+    const id=+b.dataset.v2sent
     const on=!isVerSent(id)
-    if(on && !confirm('Mark this version Sent? The draft freezes (read-only) so you don’t accidentally edit what you submitted.')) return
-    setVerSent(id, on)
-    if(on && CURROLE) setSent(CURROLE.id, true)
-    if(!on && CURROLE && !(RP2ROWS||[]).some(x=>(x.kind==='resume'||x.kind==='cover') && isVerSent(x.id) && x.id!==id)) setSent(CURROLE.id, false)
-    if(RP2EDIT && RP2EDIT.id===id) applySentFreezeUI()
-    rp2LoadVers(CURROLE.id); load()
-    logEvent(on?'version_sent_freeze':'version_sent_unfreeze', CURROLE?.id, { ver:id })
+    rp2MarkVersionSent(id, on)
   })
 }
 async function rp2LoadVers(id){
@@ -3323,7 +3406,17 @@ function applySentFreezeUI(){
   if($('bv_gen_empty')) $('bv_gen_empty').disabled=frozen
   if($('rp2_review')) $('rp2_review').disabled=false
   if($('bv_sent')){
-    $('bv_sent').textContent = frozen ? '✓ sent · frozen' : (isSent(CURROLE?.id) ? '✓ sent' : 'not sent')
+    if(frozen && RP2EDIT){
+      $('bv_sent').textContent = rp2SentChipLabel(RP2EDIT)
+      $('bv_sent').title = 'Sent artifact — click to unfreeze'
+    } else if(isSent(CURROLE?.id)){
+      const sentRow=(RP2ROWS||[]).find(x=>(x.kind==='resume'||x.kind==='cover') && isVerSent(x.id))
+      $('bv_sent').textContent = sentRow ? rp2SentChipLabel(sentRow) : '✓ sent'
+      $('bv_sent').title = 'A version is marked Sent'
+    } else {
+      $('bv_sent').textContent = 'not sent'
+      $('bv_sent').title = 'Mark this version Sent — freezes edits and names it with company + date'
+    }
     $('bv_sent').classList.toggle('on', frozen || isSent(CURROLE?.id))
   }
 }
@@ -3808,7 +3901,7 @@ async function rp2LoadGaps(){
   try{
     const { data } = await sb.from('mt_reports').select('missing_keywords').eq('role_id',CURROLE.id).eq('kind','match').order('created_at',{ascending:false}).limit(1)
     const g=data&&data[0]&&data[0].missing_keywords
-    if(Array.isArray(g)&&g.length){ RP2LASTMISS=g.slice(); return RP2LASTMISS.slice() }
+    if(Array.isArray(g)&&g.length){ RP2LASTMISS=sanitizeGapLabels(g); return RP2LASTMISS.slice() }
   }catch(_e){}
   return []
 }
@@ -4033,7 +4126,7 @@ $('rp2_generate').onclick=async()=>{
       let data=null, error=null; try{ data=await invokeRewrite(body); bumpUsage('generate') }catch(e){ error=e }
       if(error) throw error
       if(!data){ rp2ShowErr('Generate returned nothing — try again.'); break }
-      if(data.error){ rp2ShowErr(mapRewriteSoftError(data.error)||data.error); break }
+      if(data.error){ rp2ShowErr(mapRewriteSoftError(data.error, data)||data.error); break }
       if(!data.rewritten||!data.rewritten.trim()){ rp2ShowErr('Model returned nothing — try again.'); break }
       let finalText=data.rewritten.trim()
       let enforceMeta=null
@@ -4147,10 +4240,9 @@ $('rp2_upload').onclick=async()=>{
     let jsScore=null
     if(jstext){ const m=jstext.match(/match\s*(?:rate|score)\D{0,20}(\d{1,3})\s*%/i) || jstext.match(/(\d{1,3})\s*%\s*match/i)
       if(m){ const n=parseInt(m[1],10); if(n>0&&n<=100) jsScore=n } }
-    if(jsScore!=null){
-      await sb.from('mt_roles').update({ match_score: jsScore+'%' }).eq('id',CURROLE.id)
-      if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score=jsScore+'%'
-      rp2Ring(jsScore+'%'); load()
+    // Jobscan % is Jobscan's number — do NOT overwrite canonical CareerOps match (card/drawer/ring).
+    if(jsScore!=null && $('rp2_err')){
+      $('rp2_err').textContent='Jobscan report attached (Jobscan '+jsScore+'%). CareerOps match score unchanged — run Check my match to refresh that.'
     }
     rp2LoadVers(CURROLE.id)
   }catch(err){ $('rp2_err').textContent=await fnMsg(err) }
@@ -4680,14 +4772,14 @@ $('bv_sent')?.addEventListener('click', ()=>{
   if(!CURROLE) return
   if(RP2EDIT && RP2EDIT.id){
     const on=!isVerSent(RP2EDIT.id)
-    if(on && !confirm('Mark this version Sent? Freezes the draft (read-only).')) return
-    setVerSent(RP2EDIT.id, on)
-    setSent(CURROLE.id, on || (RP2ROWS||[]).some(x=>(x.kind==='resume'||x.kind==='cover') && isVerSent(x.id)))
-    applySentFreezeUI()
-    rp2LoadVers(CURROLE.id)
+    rp2MarkVersionSent(RP2EDIT.id, on)
   } else {
     const on=!isSent(CURROLE.id); setSent(CURROLE.id, on)
-    if($('bv_sent')) $('bv_sent').textContent = on ? '✓ sent' : 'not sent'
+    if($('bv_sent')){
+      $('bv_sent').textContent = on
+        ? `✓ sent · ${(CURROLE.company||'Company').trim()} · ${new Date().toLocaleString('en-US',{month:'short',day:'numeric'})}`
+        : 'not sent'
+    }
   }
   load()
 })
@@ -4733,12 +4825,17 @@ $('rp2_review')?.addEventListener('click', async ()=>{
     ].join('\n\n')
     let data=null, error=null; try{ data=await invokeChat([{ role:'user', content:prompt }]) }catch(e){ error=e }
     if(error) throw error
-    if(data?.error==='free_limit'){ box.innerHTML='<h4>Review draft</h4><p>'+FREE_LIMIT_MSG+'</p>'; return }
-    if(data?.error){ box.innerHTML='<h4>Review draft</h4><p class="err">'+(data.error||'failed')+'</p>'; return }
+    if(data?.error){
+      box.innerHTML='<h4>Review draft</h4><p class="err">'+esc(mapRewriteSoftError(data.error, data))+'</p>'
+      return
+    }
     const text=(data?.reply||data?.message||data?.content||'').trim() || 'No critique returned — try again with a BYO key if free tier is busy.'
     box.innerHTML='<h4>Review draft <span class="muted">(no silent edits)</span></h4><div style="white-space:pre-wrap">'+esc(text)+'</div><p class="muted" style="margin:8px 0 0">Apply any fixes yourself in the editor, then Save.</p>'
     logEvent('draft_review', CURROLE?.id, { len:draft.length })
-  }catch(err){ box.innerHTML='<h4>Review draft</h4><p class="err">'+esc(await fnMsg(err))+'</p>' }
+  }catch(err){
+    const raw=await fnMsg(err)
+    box.innerHTML='<h4>Review draft</h4><p class="err">'+esc(mapRewriteSoftError(raw)||raw)+'</p>'
+  }
   finally{ b.disabled=false; b.textContent=o }
 })
 
@@ -4876,14 +4973,12 @@ $('dw_evaluate')?.addEventListener('click', async ()=>{
         if(data && !data.error && typeof data.match_score==='number'){
           matchData=data
           rp2ShowScore(data, 'evaluate · ')
-          await sb.from('mt_roles').update({ match_score: data.match_score+'%' }).eq('id',CURROLE.id)
-          if(ROLESMAP[CURROLE.id]) ROLESMAP[CURROLE.id].match_score=data.match_score+'%'
-          await sb.from('mt_reports').insert({ role_id:CURROLE.id, kind:'match', match_score:data.match_score, missing_keywords:data.missing||[] })
+          await rp2PersistScore(data.match_score, data.missing)
         }
       }catch(_e){}
     } else if(tri.keyword && !matchData){
+      // Keep keyword pre-score in #dw_pretriage only — never paint into shared Match % / card.
       matchData={ match_score:tri.keyword.score, method:'pretriage-keywords', present:tri.keyword.present, missing:tri.keyword.missing, summary:'Cheap pre-triage only — LLM skipped.' }
-      rp2ShowScore(matchData, 'pre-triage · ')
     }
     const pack=buildEvaluatePack(CURROLE, matchData)
     if(tri.skipLlm && pack.suggest!=='skip') pack.suggest='skip'

@@ -1,0 +1,6 @@
+{
+  "greenhouse": ["openai", "stripe", "anthropic", "databricks", "notion"],
+  "ashby": ["ramp", "mercury", "linear"],
+  "lever": ["netflix", "spotify"],
+  "workday": []
+}

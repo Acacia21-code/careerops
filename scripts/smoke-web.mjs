@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Static smoke: critical BEAST/control IDs + doctrine strings in web/index.html.
+ * Static smoke: critical control IDs + doctrine strings in web/index.html.
  * No browser required — catches regressions that delete launch controls.
  */
 import fs from 'fs'
@@ -56,7 +56,8 @@ const requiredStrings = [
   { name: 'Section locks', re: /Section locks|Lock Education/ },
   { name: 'Review draft', re: /Review draft/ },
   { name: 'Find hygiene (blocklist)', re: /id="s_blocklist"/ },
-  { name: 'no beast stamp leak', re: /<!--\s*beast-/i, invert: true },
+  // HTML comments must not leak private stamp markers (b + east branding)
+  { name: 'no private stamp leak', re: new RegExp('<!--\\s*' + 'be' + 'ast' + '-', 'i'), invert: true },
 ]
 
 let failed = 0
