@@ -73,6 +73,7 @@ supabase/*
 !supabase/functions/**
 !supabase/schema.sql
 !supabase/boards.example.json
+!supabase/boards.default.json
 !supabase/config.toml
 !supabase/README.md
 

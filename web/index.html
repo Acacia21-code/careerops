@@ -493,7 +493,7 @@
     </div>
 
     <div class="stepnote" style="margin-top:14px">
-      <b>That's enough to see it work.</b> Run your first search right now — it scans the live career boards of 75+ companies and drops matching senior roles onto your board. No resume, no API key, nothing else needed.
+      <b>That's enough to see it work.</b> Run your first search right now — it scans 90+ company career boards and drops matching roles onto your board. No resume, no API key, nothing else needed.
       <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <button class="primary" id="o_try">🔍 Run my first search</button>
         <span id="o_tryout" style="font-weight:600"></span>
@@ -538,9 +538,9 @@
 
     <h3 style="margin-top:18px">5 · How you'll actually use it</h3>
     <div class="stepnote">
-      <b>Finding jobs:</b> hit <b>🔍 Run job search</b> on your board — it scans the live career boards of <b>75+ companies</b> for senior roles matching what you entered above, and drops them into “Sourced.” Drag cards across the board as you progress.
+      <b>Finding jobs:</b> hit <b>🔍 Run job search</b> on your board — it scans <b>90+ company career boards</b> (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) for roles matching what you entered above, and drops them into “Sourced.” Duplicates are skipped. Drag cards across the board as you progress.
       <details style="margin:6px 0"><summary style="cursor:pointer;color:#1f6feb">See exactly which companies we search</summary>
-      <span style="font-size:12px;color:#456">Affirm, Agoda, Airbnb, AirDNA, Airtable, Anthropic, Asana, Ashby, Attentive, Beyond, Bird, Brex, Cadence Travel, Canary Technologies, Carta, Chime, Cloudbeds, Cloudflare, Coinbase, Cursor, Databricks, Discord, Dropbox, Duffel, Duolingo, ElevenLabs, Engine, FareHarbor, Figma, Flexport, Flix, GetYourGuide, GitLab, Gusto, Hopper, HopSkipDrive, Instacart, Internova/Travel Leaders, JuniperSquare, Kayak, Lighthouse, Linear, Marqeta, Mercury, MongoDB, Notion, Nuitée, Okta, OpenAI, OpenTable, Palantir, Ramp, Reddit, Replit, Robinhood, Rocket Travel by Agoda, Sabre, Samsara, Saronic, SeatGeek, SiteMinder, Skyscanner, Spotify, Squarespace, Stripe, Supabase, TaskRabbit, TheFork, TripActions/Navan, Tripadvisor, Twilio, Uplift, Vacasa, Vanta, Vercel, Waymo, Wheelhouse, World Travel Inc, Zip — every board verified live; the list grows as boards come and go.</span></details><br>
+      <span style="font-size:12px;color:#456">Default pack covers 90+ verified public ATS boards (Stripe, OpenAI, Airbnb, Databricks, Notion, Ramp, … plus travel/hospitality and Workday employers). Override via profile <code>ats_boards</code> or self-host <code>boards.default.json</code>. List grows as boards come and go.</span></details><br>
       <b>Resumes &amp; cover letters — click any role card.</b> A panel opens with that job's description already loaded. From there:
       <br>• <b>Get match report</b> — free score + missing keywords, saved onto the card (your built-in Jobscan).
       <br>• <b>✨ Tailor resume</b> / <b>✉️ Cover letter</b> — writes a version for that exact job (needs your Anthropic key) — then <b>⬇︎ download as Word</b> right there.
@@ -1388,15 +1388,15 @@ async function saveOb(onboarded){
 }
 $('o_try').onclick = async () => {
   $('onberr').textContent=''; const out=$('o_tryout'); out.textContent=''
-  const b=$('o_try'), t=b.textContent; b.disabled=true; b.textContent='Scanning 75+ boards…'
+  const b=$('o_try'), t=b.textContent; b.disabled=true; b.textContent='Scanning company boards…'
   try{
     if(!await saveOb(PROFILE?.onboarded||false)) return
     logEvent('search_run')
-    const { data, error } = await sb.functions.invoke('run-search-mt',{ body:{} })
+    const { data, error } = await sb.functions.invoke('run-search-mt',{ body: findSearchBody() })
     if(error) throw new Error(await fnMsg(error))
     if(data?.error==='daily_limit'){ out.textContent='Daily search limit reached — resets tomorrow.'; return }
     if(data?.error) throw new Error(data.error)
-    out.textContent = '✓ Found '+(data?.found??0)+' matching roles — '+(data?.added??0)+' added to your board. Finish below, or skip ahead to see them.'
+    out.textContent = '✓ Scanned '+(data?.boardsScanned??'?')+' boards — found '+(data?.found??0)+' matches, added '+(data?.added??0)+' to your board. Finish below, or skip ahead to see them.'
   }catch(e){ out.textContent='Search hit a snag: '+(e.message||e)+' — you can still continue below.' }
   finally{ b.disabled=false; b.textContent=t }
 }
@@ -4249,11 +4249,19 @@ $('rp2_upload').onclick=async()=>{
   b.disabled=false; b.textContent=o
 }
 
+function findSearchBody(){
+  const p = loadFindPrefs()
+  return {
+    blocklist: p.blocklist||[],
+    max_age_days: p.max_age_days||0,
+    remote_pref: p.remote_pref||'any',
+  }
+}
 // run search
 $('run').onclick = async ()=>{
   const b=$('run'), old=b.textContent; b.disabled=true; b.textContent='🔍 Searching…'
   try{
-    const { data, error } = await sb.functions.invoke('run-search-mt')
+    const { data, error } = await sb.functions.invoke('run-search-mt', { body: findSearchBody() })
     if(error) throw error
     if(data.error==='daily_limit'){ $('status').textContent='Daily search limit reached (10/day) — resets tomorrow. Your board and all other tools keep working.'; b.disabled=false; b.textContent=old; return }
     // Client hygiene pass: soft-hide via prefs; optional close of clear blocklist hits still in Sourced
@@ -4270,9 +4278,11 @@ $('run').onclick = async ()=>{
     }catch(_e){}
     await load()
     const filt = FIND_PREFS.hide_filtered ? ' Find filters may hide some.' : ''
+    const scanned = data.boardsScanned!=null ? ` across ${data.boardsScanned} boards` : ''
+    const dups = data.skippedDup ? ` · skipped ${data.skippedDup} duplicates` : ''
     $('status').textContent = (data.added>0)
-      ? `Added ${data.added} new role${data.added>1?'s':''} matching your preferences (scanned ${data.found} live matches).${filt}`
-      : `Scanned the boards — ${data.found} roles matched your filters, all already on your board. Adjust keywords in Settings to widen.${filt}`
+      ? `Added ${data.added} new role${data.added>1?'s':''} (${data.found} live matches${scanned})${dups}.${filt}`
+      : `Scanned${scanned || ' the boards'} — ${data.found} roles matched your filters, all already on your board${dups}. Adjust keywords in Settings to widen.${filt}`
   }catch(err){ $('status').textContent='Search failed: '+await fnMsg(err) }
   b.disabled=false; b.textContent=old
 }

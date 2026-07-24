@@ -1,79 +1,91 @@
-// Configurable ATS job search — Greenhouse / Ashby / Lever public JSON boards.
-// Board list comes from request body, profile.ats_boards, or the bundled example defaults.
-// No proprietary company spider list. Cap: 10 searches/day per user (mt_usage).
+// Multi-source ATS Find — Greenhouse / Ashby / Lever / SmartRecruiters / Workday public JSON.
+// Default board pack: boards.default.json (90+ verified company boards).
+// Override via body.boards or mt_profiles.ats_boards. Cap: 10 searches/day.
+// Ideas inspired by multi-source aggregators (JobFunnel / portal sweeps) — original CareerOps code.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import DEFAULT_BOARDS from './boards.default.json' with { type: 'json' }
 
 const SEARCH_CAP = 10
+const CONCURRENCY = 16
 
-/** Small illustrative defaults — replace via Settings / body.boards / ats_boards. */
-const DEFAULT_BOARDS = {
-  greenhouse: ['openai', 'stripe', 'anthropic', 'databricks', 'notion'],
-  ashby: ['ramp', 'mercury', 'linear'],
-  lever: ['netflix', 'spotify'],
-  workday: [] as { t: string; host: string; site: string }[],
-}
-
-type Hit = { co: string; title: string; loc: string; url: string }
+type Hit = { co: string; title: string; loc: string; url: string; source: string }
+type WorkdayBoard = { t: string; host: string; site: string }
 type Boards = {
   greenhouse?: string[]
   ashby?: string[]
   lever?: string[]
-  workday?: { t: string; host: string; site: string }[]
+  smartrecruiters?: string[]
+  workday?: WorkdayBoard[]
 }
 
 const fp = (s: string) => s.toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const prettyCo = (slug: string) => slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+const normCo = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 
-function buildMatchers(prof: Record<string, unknown>) {
+function normalizeBoards(raw: unknown): Boards {
+  const base = DEFAULT_BOARDS as Boards
+  if (!raw || typeof raw !== 'object') return { ...base }
+  const o = raw as Record<string, unknown>
+  // Explicit empty arrays mean "skip that provider"; missing keys fall back to default pack.
+  return {
+    greenhouse: Array.isArray(o.greenhouse) ? o.greenhouse.map(String) : base.greenhouse,
+    ashby: Array.isArray(o.ashby) ? o.ashby.map(String) : base.ashby,
+    lever: Array.isArray(o.lever) ? o.lever.map(String) : base.lever,
+    smartrecruiters: Array.isArray(o.smartrecruiters) ? o.smartrecruiters.map(String) : (base.smartrecruiters || []),
+    workday: Array.isArray(o.workday) ? (o.workday as WorkdayBoard[]) : (base.workday || []),
+  }
+}
+
+/** Match if ANY profile title/keyword/seniority term hits the job title (OR). Soft location filter. */
+function buildMatchers(prof: Record<string, unknown>, prefs: { remote_pref?: string }) {
   const titles = (Array.isArray(prof.target_titles) ? prof.target_titles : []).map(String).filter(Boolean)
   const keywords = (Array.isArray(prof.keywords) ? prof.keywords : []).map(String).filter(Boolean)
   const seniority = (Array.isArray(prof.seniority) ? prof.seniority : []).map(String).filter(Boolean)
   const locations = (Array.isArray(prof.locations) ? prof.locations : []).map(String).filter(Boolean)
-
-  const titleRe = titles.length
-    ? new RegExp(titles.map(escapeRe).join('|'), 'i')
-    : /(director|vp\b|vice president|head of|principal|manager|lead|staff)/i
-  const kwRe = keywords.length
-    ? new RegExp(keywords.map(escapeRe).join('|'), 'i')
-    : /./i
-  const seniorRe = seniority.length
-    ? new RegExp(seniority.map(escapeRe).join('|'), 'i')
-    : null
-  const locRe = locations.length
-    ? new RegExp(locations.map(escapeRe).join('|'), 'i')
-    : null
-  const wantRemote = locations.some((l) => /remote/i.test(l))
+  const terms = [...titles, ...keywords, ...seniority]
+  const termRe = terms.length
+    ? new RegExp(terms.map(escapeRe).join('|'), 'i')
+    : /(director|vp\b|vice president|head of|principal|manager|lead|staff|partner|commercial|growth)/i
+  const locRe = locations.length ? new RegExp(locations.map(escapeRe).join('|'), 'i') : null
+  const wantRemote = locations.some((l) => /remote/i.test(l)) || prefs.remote_pref === 'remote_only' || prefs.remote_pref === 'prefer_remote'
+  const remoteOnly = prefs.remote_pref === 'remote_only'
 
   return (title: string, loc: string) => {
-    if (!titleRe.test(title)) return false
-    if (!kwRe.test(title) && keywords.length) {
-      // keywords may appear only in title for board APIs without JD text
-      if (!keywords.some((k) => title.toLowerCase().includes(k.toLowerCase()))) return false
-    }
-    if (seniorRe && !seniorRe.test(title)) return false
-    if (locRe) {
-      const okLoc = locRe.test(loc) || (wantRemote && /remote|anywhere|distributed/i.test(loc))
-      if (!okLoc && loc.trim()) return false
+    if (!termRe.test(title)) return false
+    const locStr = loc || ''
+    const looksRemote = /remote|anywhere|distributed|work from home|wfh/i.test(locStr) || /remote/i.test(title)
+    const looksOnsite = /\bon[\s-]?site\b|\bin[\s-]?office\b/i.test(locStr) && !looksRemote
+    if (remoteOnly && looksOnsite) return false
+    if (locRe && locStr.trim()) {
+      const okLoc = locRe.test(locStr) || (wantRemote && looksRemote)
+      if (!okLoc && !looksRemote) return false
     }
     return true
   }
 }
 
-function escapeRe(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function normalizeBoards(raw: unknown): Boards {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_BOARDS }
-  const o = raw as Record<string, unknown>
-  return {
-    greenhouse: Array.isArray(o.greenhouse) ? o.greenhouse.map(String) : DEFAULT_BOARDS.greenhouse,
-    ashby: Array.isArray(o.ashby) ? o.ashby.map(String) : DEFAULT_BOARDS.ashby,
-    lever: Array.isArray(o.lever) ? o.lever.map(String) : DEFAULT_BOARDS.lever,
-    workday: Array.isArray(o.workday) ? (o.workday as Boards['workday']) : [],
-  }
+function isBlocked(company: string, blocklist: string[]) {
+  const n = normCo(company)
+  if (!n) return false
+  return blocklist.some((b) => {
+    const bn = normCo(b)
+    return bn && (n.includes(bn) || bn.includes(n))
+  })
 }
 
 const diag: Record<string, number> = {}
+
+async function mapPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  let i = 0
+  const workers = Array.from({ length: Math.min(limit, Math.max(items.length, 1)) }, async () => {
+    while (i < items.length) {
+      const idx = i++
+      await fn(items[idx])
+    }
+  })
+  await Promise.all(workers)
+}
 
 async function gh(slug: string, ok: (t: string, l: string) => boolean, out: Hit[]) {
   try {
@@ -82,8 +94,10 @@ async function gh(slug: string, ok: (t: string, l: string) => boolean, out: Hit[
     const j = await r.json()
     let n = 0
     for (const x of (j.jobs || [])) {
-      if (ok(x.title, x.location?.name || '')) {
-        out.push({ co: slug, title: x.title, loc: x.location?.name || '', url: x.absolute_url })
+      const title = x.title || ''
+      const loc = x.location?.name || ''
+      if (ok(title, loc)) {
+        out.push({ co: slug, title, loc, url: x.absolute_url, source: 'greenhouse' })
         n++
       }
     }
@@ -98,8 +112,10 @@ async function ashby(org: string, ok: (t: string, l: string) => boolean, out: Hi
     const d = await r.json()
     let n = 0
     for (const x of (d.jobs || [])) {
-      if (ok(x.title, x.location || '')) {
-        out.push({ co: org, title: x.title, loc: x.location || '', url: x.jobUrl || x.applyUrl })
+      const title = x.title || ''
+      const loc = x.location || ''
+      if (ok(title, loc)) {
+        out.push({ co: org, title, loc, url: x.jobUrl || x.applyUrl, source: 'ashby' })
         n++
       }
     }
@@ -116,7 +132,7 @@ async function lever(co: string, ok: (t: string, l: string) => boolean, out: Hit
     for (const x of (j || [])) {
       const loc = x.categories?.location || ''
       if (ok(x.text, loc)) {
-        out.push({ co, title: x.text, loc, url: x.hostedUrl || x.applyUrl })
+        out.push({ co, title: x.text, loc, url: x.hostedUrl || x.applyUrl, source: 'lever' })
         n++
       }
     }
@@ -124,7 +140,27 @@ async function lever(co: string, ok: (t: string, l: string) => boolean, out: Hit
   } catch (_) { diag['lever:' + co] = -1 }
 }
 
-async function workday(w: { t: string; host: string; site: string }, ok: (t: string, l: string) => boolean, out: Hit[], queries: string[]) {
+async function smartrecruiters(co: string, ok: (t: string, l: string) => boolean, out: Hit[]) {
+  try {
+    const r = await fetch(`https://api.smartrecruiters.com/v1/companies/${co}/postings`)
+    if (!r.ok) { diag['sr:' + co] = -r.status; return }
+    const d = await r.json()
+    let n = 0
+    for (const x of (d.content || [])) {
+      const title = x.name || x.title || ''
+      const loc = x.location?.city || x.location?.country || ''
+      const url = x.ref || x.applyUrl || (x.id ? `https://jobs.smartrecruiters.com/${co}/${x.id}` : '')
+      if (url && ok(title, loc)) {
+        out.push({ co, title, loc, url, source: 'smartrecruiters' })
+        n++
+      }
+    }
+    diag['sr:' + co] = n
+  } catch (_) { diag['sr:' + co] = -1 }
+}
+
+async function workday(w: WorkdayBoard, ok: (t: string, l: string) => boolean, out: Hit[], queries: string[]) {
+  let n = 0
   for (const q of queries.slice(0, 4)) {
     try {
       const r = await fetch(`https://${w.host}/wday/cxs/${w.t}/${w.site}/jobs`, {
@@ -141,15 +177,14 @@ async function workday(w: { t: string; host: string; site: string }, ok: (t: str
             title: p.title,
             loc: p.locationsText || '',
             url: `https://${w.host}/en-US/${w.site}/job${(p.externalPath || '').replace(/^\/job/, '')}`,
+            source: 'workday',
           })
+          n++
         }
       }
-    } catch (_) { /* ignore board errors */ }
+    } catch (_) { /* ignore */ }
   }
-}
-
-function prettyCo(slug: string) {
-  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  diag['wd:' + w.t] = n
 }
 
 Deno.serve(async (req) => {
@@ -178,7 +213,12 @@ Deno.serve(async (req) => {
 
   const { data: prof } = await sb.from('mt_profiles').select('target_titles,keywords,seniority,locations,ats_boards').eq('owner', user.id).maybeSingle()
   const boards = normalizeBoards(body.boards ?? prof?.ats_boards)
-  const ok = buildMatchers(prof || {})
+  const blocklist = Array.isArray(body.blocklist) ? body.blocklist.map(String) : []
+  const prefs = {
+    remote_pref: String(body.remote_pref || 'any'),
+    max_age_days: Number(body.max_age_days || 0) || 0,
+  }
+  const ok = buildMatchers(prof || {}, prefs)
   const wdQueries = [
     ...(Array.isArray(prof?.keywords) ? prof!.keywords.map(String) : []),
     ...(Array.isArray(prof?.target_titles) ? prof!.target_titles.map(String) : []),
@@ -187,27 +227,39 @@ Deno.serve(async (req) => {
 
   Object.keys(diag).forEach((k) => delete diag[k])
   const out: Hit[] = []
-  await Promise.all([
-    ...(boards.greenhouse || []).map((s) => gh(s, ok, out)),
-    ...(boards.ashby || []).map((o) => ashby(o, ok, out)),
-    ...(boards.lever || []).map((c) => lever(c, ok, out)),
-    ...(boards.workday || []).map((w) => workday(w, ok, out, wdQueries)),
-  ])
 
-  const seen = new Set<string>()
-  const uniq = out.filter((o) => o.url && !seen.has(o.url) && seen.add(o.url))
+  type Job = { kind: string; id: string }
+  const jobs: Job[] = [
+    ...(boards.greenhouse || []).map((id) => ({ kind: 'gh', id })),
+    ...(boards.ashby || []).map((id) => ({ kind: 'ashby', id })),
+    ...(boards.lever || []).map((id) => ({ kind: 'lever', id })),
+    ...(boards.smartrecruiters || []).map((id) => ({ kind: 'sr', id })),
+  ]
+  await mapPool(jobs, CONCURRENCY, async (job) => {
+    if (job.kind === 'gh') await gh(job.id, ok, out)
+    else if (job.kind === 'ashby') await ashby(job.id, ok, out)
+    else if (job.kind === 'lever') await lever(job.id, ok, out)
+    else if (job.kind === 'sr') await smartrecruiters(job.id, ok, out)
+  })
+  for (const w of (boards.workday || [])) await workday(w, ok, out, wdQueries)
 
-  // RLS scopes rows to the signed-in user (owner DEFAULT auth.uid()).
+  // URL dedupe within this scan
+  const seenUrl = new Set<string>()
+  const uniq = out.filter((o) => o.url && !seenUrl.has(o.url) && seenUrl.add(o.url))
+
   const { data: existing } = await sb.from('mt_roles').select('url,title,company')
   const knownUrls = new Set((existing || []).map((r: { url?: string }) => r.url).filter(Boolean))
   const knownFp = new Set((existing || []).map((r: { company?: string; title?: string }) => fp((r.company || '') + ' ' + (r.title || ''))))
 
   let added = 0
+  let skippedDup = 0
+  let skippedBlock = 0
   const addedRoles: string[] = []
   for (const o of uniq) {
-    if (knownUrls.has(o.url)) continue
+    if (knownUrls.has(o.url)) { skippedDup++; continue }
     const coName = prettyCo(o.co)
-    if (knownFp.has(fp(coName + ' ' + o.title))) continue
+    if (isBlocked(coName, blocklist) || isBlocked(o.co, blocklist)) { skippedBlock++; continue }
+    if (knownFp.has(fp(coName + ' ' + o.title))) { skippedDup++; continue }
     const level = /vp|vice president|chief/i.test(o.title) ? 'VP'
       : /senior director|sr\.? director/i.test(o.title) ? 'Senior Director'
       : /principal/i.test(o.title) ? 'Principal'
@@ -218,7 +270,7 @@ Deno.serve(async (req) => {
       title: o.title,
       level,
       url: o.url,
-      source: 'run-search',
+      source: 'run-search:' + o.source,
       fit_score: '—',
       stage: 'sourced',
       ghost_risk: 'low',
@@ -237,16 +289,27 @@ Deno.serve(async (req) => {
   }
 
   const live = Object.entries(diag).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+  const boardCount =
+    (boards.greenhouse || []).length +
+    (boards.ashby || []).length +
+    (boards.lever || []).length +
+    (boards.smartrecruiters || []).length +
+    (boards.workday || []).length
+
   return new Response(JSON.stringify({
     found: uniq.length,
     added,
-    addedRoles,
+    addedRoles: addedRoles.slice(0, 40),
+    skippedDup,
+    skippedBlock,
+    boardsScanned: boardCount,
     boardsHit: live.length,
-    topBoards: live.slice(0, 10),
+    topBoards: live.slice(0, 12),
     boardsUsed: {
       greenhouse: (boards.greenhouse || []).length,
       ashby: (boards.ashby || []).length,
       lever: (boards.lever || []).length,
+      smartrecruiters: (boards.smartrecruiters || []).length,
       workday: (boards.workday || []).length,
     },
   }), { headers: cors })

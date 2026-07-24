@@ -42,7 +42,7 @@ The product doctrine is blunt and encoded in the UI:
 
 Sourced → Researched → Conversation → Applied → Interview → Offer → Rejected → Closed.
 
-- **Run job search** scans live company career boards (Greenhouse / Ashby / Lever-style sources) using your titles, keywords, seniority, and locations.  
+- **Run job search** scans **90+** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) using your titles, keywords, seniority, and locations — with server + client **dedupe** so the same role doesn’t land repeatedly.  
 - **Find hygiene** (Settings): company **blocklist**, **max posting age**, **remote preference**, and soft-hide of blocked / stale / non-matching roles.  
 - **Triage** on Sourced: batch match, dedupe, sort/filter by verdict — tags scores only; never applies.  
 - **Add role**: paste **link + job description** when a scrape is incomplete.  
