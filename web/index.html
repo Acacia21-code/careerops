@@ -1018,7 +1018,7 @@
   <h2 style="margin:0 0 10px">Settings</h2>
   <label>Target job titles</label><input id="s_titles">
   <label>Keywords</label><input id="s_keywords">
-  <div class="row"><div><label>Seniority</label><input id="s_seniority"></div><div><label>Locations</label><input id="s_locations"></div></div>
+  <div class="row"><div><label>Seniority</label><input id="s_seniority"></div><div><label>Locations <span class="h">US / city / Remote — foreign-pinned Remote is blocked</span></label><input id="s_locations" placeholder="Remote, US, Chicago"></div></div>
   <label>Resume</label><textarea id="s_resume"></textarea>
 
   <h3 style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">Find hygiene</h3>
@@ -1699,7 +1699,7 @@ function roleAgeDays(r){
   return Math.floor(ms/864e5)
 }
 function locBlob(r){
-  return [r?.location, r?.loc, r?.jd, r?.title, r?.company].map(x=>String(x||'')).join(' ').toLowerCase()
+  return [r?.location, r?.loc, r?.notes, r?.jd, r?.title, r?.company].map(x=>String(x||'')).join(' ').toLowerCase()
 }
 function isRemoteRole(r){
   const t=locBlob(r)
@@ -1709,6 +1709,26 @@ function isRemoteRole(r){
 function isOnsiteHeavy(r){
   const t=locBlob(r)
   return /\bon[- ]?site\b|\bin[- ]?office\b|must (?:be|work) in|relocat/.test(t) && !/\bremote\b/.test(t)
+}
+/** Soft-hide wrong-country Sourced cards (mirrors run-search-mt/match.mjs geo gate). */
+const FIND_NON_US_GEO_RE=/\b(indonesia|jakarta|bali|bangkok|thailand|singapore|manila|philippines|india|bangalore|bengaluru|hyderabad|mumbai|delhi|vietnam|hanoi|malaysia|kuala lumpur|china|shanghai|beijing|hong kong|taiwan|japan|tokyo|korea|seoul|australia|sydney|melbourne|london|united kingdom|\buk\b|ireland|dublin|germany|berlin|france|paris|netherlands|amsterdam|spain|madrid|portugal|italy|poland|brazil|mexico\b|canada|toronto|vancouver|emea|apac|latam|dubai|uae|israel|tel aviv)\b/i
+const FIND_US_GEO_RE=/\b(united states|\bu\.?\s?s\.?\s?a\.?\b|\busa\b|america|new york|nyc|chicago|san francisco|\bsf\b|bay area|los angeles|seattle|austin|denver|boston|atlanta|dallas|miami|houston|remote[\s-]*(us|usa|united states))\b/i
+function findLocationPrefs(){
+  const locs=findListTerms(PROFILE?.locations)
+  const home=String(PROFILE?.location||'').trim()
+  if(home && !locs.some(l=>l.toLowerCase()===home.toLowerCase())) locs.push(home)
+  return locs
+}
+function roleWrongGeo(r){
+  const locs=findLocationPrefs()
+  if(!locs.length) return false
+  const concrete=locs.filter(l=>!/^remote([\s-]*(only|ok|friendly))?$/i.test(l))
+  const usCentric=concrete.some(l=>FIND_US_GEO_RE.test(l)||/^(us|usa|u\.s\.a?\.?)$/i.test(l.trim()))
+  if(!usCentric) return false
+  const hay=locBlob(r)
+  const foreign=FIND_NON_US_GEO_RE.test(hay)
+  const us=FIND_US_GEO_RE.test(hay)
+  return foreign && !us
 }
 
 /** Find lane helpers (mirrors supabase/functions/run-search-mt/match.mjs — keep in sync). */
@@ -1742,6 +1762,7 @@ function roleFilterReason(r){
   const age=roleAgeDays(r)
   if(FIND_PREFS.max_age_days>0 && age!=null && age>FIND_PREFS.max_age_days) return 'over_age'
   if(FIND_PREFS.remote_pref==='remote_only' && isOnsiteHeavy(r) && !isRemoteRole(r)) return 'not_remote'
+  if(String(r?.stage||'')==='sourced' && roleWrongGeo(r)) return 'wrong_geo'
   if(String(r?.stage||'')==='sourced'){
     const lane=roleOffLaneReason(r)
     if(lane) return 'off_lane'
@@ -2024,7 +2045,7 @@ async function load(){
   const hiddenBit = hiddenN
     ? (FIND_SHOW_HIDDEN
       ? ` · showing ${hiddenN} filtered Sourced`
-      : ` · <span class="hidden-chip" id="status_hidden" title="Soft-hidden Sourced: off-lane titles, blocklist, over-age, or wrong remote pref. Click to reveal.">${hiddenN} filtered Sourced — show</span>`)
+      : ` · <span class="hidden-chip" id="status_hidden" title="Soft-hidden Sourced: off-lane titles, wrong country, blocklist, over-age, or wrong remote pref. Click to reveal.">${hiddenN} filtered Sourced — show</span>`)
     : (FIND_SHOW_HIDDEN ? ' · <span class="hidden-chip" id="status_hidden">hide filtered again</span>' : '')
   $('status').innerHTML = active+' active on board'+hiddenBit+' · click a card to check fit · drag between columns'
   const sh=$('status_hidden')
@@ -4439,15 +4460,14 @@ $('run').onclick = async ()=>{
     const { data, error } = await sb.functions.invoke('run-search-mt', { body: findSearchBody() })
     if(error) throw error
     if(data.error==='daily_limit'){ $('status').textContent='Daily search limit reached (10/day) — resets tomorrow. Your board and all other tools keep working.'; b.disabled=false; b.textContent=old; return }
-    // Client hygiene pass: soft-hide via prefs; optional close of clear blocklist hits still in Sourced
+    // Client hygiene: close blocklist + clear wrong-geo Sourced noise
     try{
-      const bl=(FIND_PREFS.blocklist||[]).map(normCompany).filter(Boolean)
-      if(bl.length){
-        const { data:sourced } = await sb.from('mt_roles').select('id,company,stage').eq('stage','sourced')
-        for(const r of sourced||[]){
-          if(isBlockedCompany(r.company)){
-            await sb.from('mt_roles').update({ stage: CLOSED, notes: (r.notes?r.notes+' · ':'')+'auto-closed: blocklist' }).eq('id', r.id)
-          }
+      const { data:sourced } = await sb.from('mt_roles').select('id,company,title,stage,notes,jd').eq('stage','sourced')
+      for(const r of sourced||[]){
+        if(isBlockedCompany(r.company)){
+          await sb.from('mt_roles').update({ stage: CLOSED, notes: (r.notes?r.notes+' · ':'')+'auto-closed: blocklist' }).eq('id', r.id)
+        } else if(roleWrongGeo(r)){
+          await sb.from('mt_roles').update({ stage: CLOSED, notes: (r.notes?r.notes+' · ':'')+'auto-closed: wrong geo' }).eq('id', r.id)
         }
       }
     }catch(_e){}
@@ -4458,7 +4478,7 @@ $('run').onclick = async ()=>{
     const blocked = data.skippedBlock ? ` · ${data.skippedBlock} blocklisted` : ''
     const capped = data.skippedCap ? ` · capped at ${data.addCap||40} best matches` : ''
     const hiddenMsg = (FIND_PREFS.hide_filtered && hiddenNow)
-      ? ` · ${hiddenNow} hidden off-lane/age/remote (click “hidden — show”)`
+      ? ` · ${hiddenNow} hidden off-lane/age/remote/geo (click “filtered Sourced — show”)`
       : ''
     $('status').textContent = (data.added>0)
       ? `Added ${data.added} · ${data.found} matched titles/keywords${scanned}${dups}${blocked}${capped}${hiddenMsg}.`
@@ -5349,7 +5369,8 @@ $('triage_close_offlane')?.addEventListener('click', async ()=>{
   let closed=0, closedAe=0
   const roles=Object.values(ROLESMAP||{})
   for(const r of roles){
-    if(String(r.stage||'')==='sourced' && roleOffLaneReason(r)){
+    if(String(r.stage||'')!=='sourced') continue
+    if(roleOffLaneReason(r) || roleWrongGeo(r)){
       await sb.from('mt_roles').update({ stage: CLOSED }).eq('id', r.id)
       closed++
     }

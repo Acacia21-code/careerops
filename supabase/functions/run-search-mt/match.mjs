@@ -84,6 +84,100 @@ export function roleOffLaneReason(role, prof) {
   return null
 }
 
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** Non-US / offshore pins — reject when user prefs are US-centric. */
+export const NON_US_GEO_RE =
+  /\b(indonesia|jakarta|bali|surabaya|bangkok|thailand|singapore|manila|philippines|india|bangalore|bengaluru|hyderabad|mumbai|delhi|pune|chennai|vietnam|hanoi|ho chi minh|saigon|malaysia|kuala lumpur|china|shanghai|beijing|shenzhen|hong kong|taiwan|taipei|japan|tokyo|osaka|korea|seoul|australia|sydney|melbourne|brisbane|new zealand|auckland|london|england|scotland|wales|united kingdom|\buk\b|ireland|dublin|germany|berlin|munich|frankfurt|france|paris|netherlands|amsterdam|spain|madrid|barcelona|portugal|lisbon|italy|milan|rome|poland|warsaw|brazil|s[aã]o paulo|mexico\b|mexico city|canada|toronto|vancouver|montreal|emea|apac|latam|mena|africa|dubai|uae|israel|tel aviv|zurich|switzerland|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|austria|vienna|belgium|brussels|czech|prague|romania|bucharest|hungary|budapest|turkey|istanbul|egypt|cairo|nigeria|lagos|kenya|nairobi|colombia|bogota|argentina|buenos aires|chile|santiago|peru|lima)\b/i
+
+export const US_GEO_RE =
+  /\b(united states|\bu\.?\s?s\.?\s?a\.?\b|\busa\b|\bus-only\b|\bus based\b|\bbased in the us\b|america|new york|nyc|chicago|san francisco|\bsf\b|bay area|los angeles|\bla\b|seattle|austin|denver|boston|atlanta|dallas|miami|philadelphia|phoenix|san diego|portland|minneapolis|detroit|houston|washington\s?d\.?c\.?|remote[\s-]*(us|usa|united states))\b/i
+
+/** Merge Settings locations + “where you're based”. */
+export function effectiveLocations(prof) {
+  const locs = listTerms(prof?.locations)
+  const home = String(prof?.location || '').trim()
+  if (home && !locs.some((l) => l.toLowerCase() === home.toLowerCase())) locs.push(home)
+  return locs
+}
+
+function isRemoteOnlyTerm(l) {
+  return /^remote([\s-]*(only|ok|friendly))?$/i.test(String(l || '').trim())
+}
+
+function prefsWantRemote(locations, prefs) {
+  return (
+    locations.some((l) => /remote/i.test(l)) ||
+    prefs.remote_pref === 'remote_only' ||
+    prefs.remote_pref === 'prefer_remote'
+  )
+}
+
+function prefsAreUsCentric(locations) {
+  const concrete = locations.filter((l) => !isRemoteOnlyTerm(l))
+  if (!concrete.length) return false
+  return concrete.some((l) => US_GEO_RE.test(l) || /^(us|usa|u\.s\.a?\.?)$/i.test(l.trim()))
+}
+
+/** Word-bounded preference match — bare "US" must not match inside "Business" / "Russia". */
+export function buildLocPreferenceRe(locations) {
+  const parts = []
+  for (const raw of locations) {
+    const l = String(raw || '').trim()
+    if (!l || isRemoteOnlyTerm(l)) continue
+    if (/^(us|usa|u\.s\.a?\.?)$/i.test(l)) {
+      parts.push(String.raw`\b(?:united states|u\.?\s?s\.?\s?a?\.?|usa)\b`)
+      continue
+    }
+    if (/^(uk|u\.k\.)$/i.test(l)) {
+      parts.push(String.raw`\b(?:united kingdom|u\.?\s?k\.?|england|scotland|wales)\b`)
+      continue
+    }
+    parts.push(`\\b${escapeRe(l)}\\b`)
+  }
+  return parts.length ? new RegExp(parts.join('|'), 'i') : null
+}
+
+/**
+ * Geo gate for Find. Remote worldwide used to bypass location prefs —
+ * "Remote – Indonesia" and empty-loc Jakarta titles slipped through.
+ * Returns null if OK, else a short reason code.
+ */
+export function locationRejectReason(loc, title, locations, prefs = {}) {
+  const locs = listTerms(locations)
+  if (!locs.length) return null
+
+  const locStr = String(loc || '')
+  const hay = `${locStr} ${title || ''}`
+  const wantRemote = prefsWantRemote(locs, prefs)
+  const remoteOnly = prefs.remote_pref === 'remote_only'
+  const looksRemote =
+    /remote|anywhere|distributed|work from home|\bwfh\b/i.test(hay) || /remote/i.test(String(title || ''))
+  const looksOnsite = /\bon[\s-]?site\b|\bin[\s-]?office\b/i.test(hay) && !looksRemote
+  if (remoteOnly && looksOnsite) return 'not_remote'
+
+  const locRe = buildLocPreferenceRe(locs)
+  const prefHit = !!(locRe && locRe.test(hay))
+  const usCentric = prefsAreUsCentric(locs)
+  const foreignPin = NON_US_GEO_RE.test(hay)
+  const usPin = US_GEO_RE.test(hay)
+
+  // Pinned foreign market vs US prefs — even if posting says Remote
+  if (usCentric && foreignPin && !usPin && !prefHit) return 'wrong_geo'
+
+  // Concrete city/country prefs: unmarked remote OK; remote+other-country already caught
+  if (locRe) {
+    if (prefHit) return null
+    // US-centric prefs accept any US pin even if the city isn't listed (e.g. SF when prefs say Chicago + US)
+    if (usCentric && usPin && !foreignPin) return null
+    if (wantRemote && looksRemote && !(usCentric && foreignPin)) return null
+    if (locStr.trim()) return 'wrong_geo'
+    // Empty ATS location: reject only when title itself screams a non-matching place
+    if (foreignPin && usCentric) return 'wrong_geo'
+  }
+  return null
+}
+
 /**
  * Strict Find filter → score (0 = reject).
  * scoreOf(title, loc, company?)
@@ -92,17 +186,10 @@ export function buildScorer(prof, prefs = {}) {
   const titles = listTerms(prof?.target_titles)
   const keywords = listTerms(prof?.keywords)
   const seniority = listTerms(prof?.seniority)
-  const locations = listTerms(prof?.locations)
+  const locations = effectiveLocations(prof)
   const userAskedBan = [...titles, ...keywords].some((t) => BAN_RE.test(t))
   const wantDomain = prefsWantDomain(titles, keywords)
-
-  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const locRe = locations.length ? new RegExp(locations.map(escapeRe).join('|'), 'i') : null
-  const wantRemote =
-    locations.some((l) => /remote/i.test(l)) ||
-    prefs.remote_pref === 'remote_only' ||
-    prefs.remote_pref === 'prefer_remote'
-  const remoteOnly = prefs.remote_pref === 'remote_only'
+  const wantRemote = prefsWantRemote(locations, prefs)
 
   return (title, loc, company = '') => {
     if (!title || !title.trim()) return 0
@@ -132,15 +219,12 @@ export function buildScorer(prof, prefs = {}) {
       if (!strong) return 0
     }
 
+    if (locationRejectReason(loc, title, locations, prefs)) return 0
+
     const locStr = loc || ''
     const looksRemote =
-      /remote|anywhere|distributed|work from home|wfh/i.test(locStr) || /remote/i.test(title)
-    const looksOnsite = /\bon[\s-]?site\b|\bin[\s-]?office\b/i.test(locStr) && !looksRemote
-    if (remoteOnly && looksOnsite) return 0
-    if (locRe && locStr.trim()) {
-      const okLoc = locRe.test(locStr) || (wantRemote && looksRemote)
-      if (!okLoc && !looksRemote) return 0
-    }
+      /remote|anywhere|distributed|work from home|\bwfh\b/i.test(`${locStr} ${title}`) ||
+      /remote/i.test(title)
 
     const tScore = titleHits * 5 + (titleTok && !titleHits ? 2 : 0)
     const kScore = kwHits * 3 + (kwTok && !kwHits ? 2 : 0)

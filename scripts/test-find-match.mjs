@@ -4,7 +4,7 @@
  * Expects 10 lane-true titles in, and known off-lane junk out.
  */
 import assert from 'node:assert/strict'
-import { buildScorer, roleOffLaneReason } from '../supabase/functions/run-search-mt/match.mjs'
+import { buildScorer, locationRejectReason, roleOffLaneReason } from '../supabase/functions/run-search-mt/match.mjs'
 
 const travelProf = {
   target_titles: [
@@ -29,6 +29,7 @@ const travelProf = {
   ],
   seniority: [],
   locations: ['remote', 'chicago', 'US'],
+  location: 'Chicago, IL',
 }
 
 const scoreOf = buildScorer(travelProf, { remote_pref: 'any' })
@@ -59,6 +60,22 @@ const OFF_LANE = [
   { co: 'Agoda', title: 'Associate Director, Global HR Operations (Bangkok Based)' },
 ]
 
+const WRONG_GEO = [
+  { title: 'Director, Travel Partnerships', loc: 'Jakarta, Indonesia', why: 'indonesia onsite' },
+  { title: 'Director, Airline Partnerships', loc: 'Remote - Indonesia', why: 'remote indonesia' },
+  { title: 'Director Travel Partnerships (Bangkok Based)', loc: 'Remote', why: 'bangkok in title' },
+  { title: 'Senior Director, Strategic Travel Partnerships', loc: 'Singapore', why: 'singapore' },
+  { title: 'Director, Business Development - Air Partner Relations', loc: 'London, UK', why: 'uk' },
+]
+
+const RIGHT_GEO = [
+  { title: 'Director Travel Partnerships', loc: 'Remote' },
+  { title: 'Director Travel Partnerships', loc: 'Chicago, IL' },
+  { title: 'Director Travel Partnerships', loc: 'Remote - United States' },
+  { title: 'Director Travel Partnerships', loc: 'San Francisco Bay Area' },
+  { title: 'Director Travel Partnerships', loc: '' },
+]
+
 let failed = 0
 
 for (const r of LANE_TRUE) {
@@ -77,9 +94,33 @@ for (const r of OFF_LANE) {
   if (!ok) failed++
 }
 
+for (const r of WRONG_GEO) {
+  const s = scoreOf(r.title, r.loc, 'Agoda')
+  const why = locationRejectReason(r.loc, r.title, travelProf.locations, { remote_pref: 'any' })
+  const ok = s === 0 && !!why
+  console.log(ok ? 'ok   geo' : 'FAIL geo', r.why, `score=${s}`, why || 'NOT rejected')
+  if (!ok) failed++
+}
+
+for (const r of RIGHT_GEO) {
+  const s = scoreOf(r.title, r.loc, 'Expedia')
+  const why = locationRejectReason(r.loc, r.title, travelProf.locations, { remote_pref: 'any' })
+  const ok = s > 0 && !why
+  console.log(ok ? 'ok   us' : 'FAIL us', r.loc || '(empty loc)', `score=${s}`, why || '')
+  if (!ok) failed++
+}
+
+// "US" must not match inside Business / Russia
+{
+  const why = locationRejectReason('Russia', 'Director Travel Partnerships', ['US'], {})
+  const ok = why === 'wrong_geo'
+  console.log(ok ? 'ok   us-boundary' : 'FAIL us-boundary', why || 'NOT rejected')
+  if (!ok) failed++
+}
+
 assert.equal(LANE_TRUE.length, 10, 'fixture must stay at 10 lane-true samples')
 if (failed) {
   console.error(`\ntest-find-match: ${failed} failure(s)`)
   process.exit(1)
 }
-console.log('\nok  find-match fixture (10 lane-true, off-lane rejected)')
+console.log('\nok  find-match fixture (10 lane-true, off-lane rejected, geo gated)')

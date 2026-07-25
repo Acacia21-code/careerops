@@ -60,7 +60,7 @@ const requiredStrings = [
   { name: 'Review draft', re: /Review draft/ },
   { name: 'Find hygiene (blocklist)', re: /id="s_blocklist"/ },
   { name: 'Worth applying tag (not auto-apply)', re: /Worth applying/ },
-  { name: 'hidden show chip', re: /hidden — show/ },
+  { name: 'hidden show chip', re: /filtered Sourced — show/ },
   { name: 'single Build resume CTA', re: /id="dw_tailor"/ },
   { name: 'no duplicate mid Build CTA', re: /id="dw_tailor_mid"/, invert: true },
   { name: 'plain-English remove junk', re: /Remove junk from Sourced/ },

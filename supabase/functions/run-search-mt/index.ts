@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'daily_limit', used: searches, cap: SEARCH_CAP }), { headers: cors })
   }
 
-  const { data: prof } = await sb.from('mt_profiles').select('target_titles,keywords,seniority,locations,ats_boards').eq('owner', user.id).maybeSingle()
+  const { data: prof } = await sb.from('mt_profiles').select('target_titles,keywords,seniority,locations,location,ats_boards').eq('owner', user.id).maybeSingle()
   const boards = normalizeBoards(body.boards ?? prof?.ats_boards)
   const blocklist = Array.isArray(body.blocklist) ? body.blocklist.map(String) : []
   const prefs = {
@@ -252,6 +252,7 @@ Deno.serve(async (req) => {
       : '—'
     // Stamp lives in fit_score suffix (sterile, no extra columns required)
     const stamp = matchStamp(o.title, prof || {})
+    const locNote = o.loc ? `loc: ${String(o.loc).slice(0, 120)}` : ''
     const { error } = await sb.from('mt_roles').insert({
       company: coName,
       title: o.title,
@@ -261,6 +262,7 @@ Deno.serve(async (req) => {
       fit_score: stamp ? `${o.score}|${stamp}` : String(o.score),
       stage: 'sourced',
       ghost_risk: 'unknown',
+      notes: locNote || null,
     })
     if (error) continue
     knownFp.add(fp(coName + ' ' + o.title))
