@@ -61,8 +61,11 @@ const requiredStrings = [
   { name: 'Find hygiene (blocklist)', re: /id="s_blocklist"/ },
   { name: 'Worth applying tag (not auto-apply)', re: /Worth applying/ },
   { name: 'hidden show chip', re: /hidden — show/ },
-  { name: 'single Build resume footer', re: /id="dw_tailor"/ },
+  { name: 'single Build resume CTA', re: /id="dw_tailor"/ },
   { name: 'no duplicate mid Build CTA', re: /id="dw_tailor_mid"/, invert: true },
+  { name: 'plain-English remove junk', re: /Remove junk from Sourced/ },
+  { name: 'styled triage fields', re: /class="triage-field"/ },
+  { name: 'next step after verdict', re: /id="dw_nextstep"/ },
   // HTML comments must not leak private stamp markers (b + east branding)
   { name: 'no private stamp leak', re: new RegExp('<!--\\s*' + 'be' + 'ast' + '-', 'i'), invert: true },
 ]

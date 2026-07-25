@@ -123,8 +123,8 @@
   .fu-bar{padding:8px 18px 0}
   .fu-label{font-size:11px;letter-spacing:.5px;color:var(--text-2);font-weight:700;display:block;margin-bottom:4px}
   .fu-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-  .fu-chip{cursor:pointer;display:inline-flex;align-items:center;max-width:min(100%,320px);min-width:0;
-    padding:4px 10px;border-radius:14px;font-size:12px;background:#eef0f3;color:#345;overflow:hidden}
+  .fu-chip{cursor:pointer;display:inline-flex;align-items:center;max-width:min(100%,440px);min-width:0;
+    padding:6px 8px 6px 12px;border-radius:14px;font-size:12.5px;background:#eef0f3;color:#345;overflow:hidden;gap:4px}
   .fu-chip.overdue{background:#fff0f0;color:#c00}
   .fu-chip .fu-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .doc{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-3);
@@ -162,9 +162,19 @@
   .eval-box ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.45;color:var(--text-2)}
   .eval-box .ev-call{margin-top:10px;font-size:13px;font-weight:600;color:var(--text)}
   .triage-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 18px 0}
-  .triage-bar .muted{font-size:12.5px}
-  .triage-bar select,.triage-bar label{font-size:12.5px}
-  .triage-bar select{padding:6px 8px;border-radius:8px;border:1px solid var(--hair);background:var(--surface)}
+  .triage-bar .muted{font-size:12.5px;flex:1 1 220px;min-width:160px;line-height:1.4}
+  .triage-bar .triage-field{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text-2);
+    background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:4px 6px 4px 12px}
+  .triage-bar .triage-field select{
+    appearance:none;-webkit-appearance:none;font:inherit;font-weight:600;font-size:12.5px;color:var(--text);
+    border:0;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23555' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border-radius:8px;padding:7px 28px 7px 10px;min-width:118px;cursor:pointer}
+  .triage-bar .triage-field select:focus{outline:2px solid rgba(6,189,180,.35);outline-offset:1px}
+  .next-step{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#e8f8f6;border:1px solid #b7ebe6;
+    font-size:13px;line-height:1.45;color:#0b5c57}
+  .next-step b{font-weight:700}
+  .gaps-explain{margin:0;font-size:13px;line-height:1.5;color:var(--text)}
+  .gaps-explain .why-low{display:block;margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff8e6;border:1px solid #f0dfa8;color:#6a4b00}
   .cardlet .match-pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-weak);color:var(--accent-ink)}
   .lock-row{display:flex;flex-direction:column;gap:6px;padding:8px 12px;margin:6px 0 10px;border:1px solid var(--hair);border-radius:10px;background:var(--surface-2);font-size:12.5px}
   .lock-row label{display:flex;gap:8px;align-items:center;font-weight:400;margin:0}
@@ -176,8 +186,10 @@
   .sent.on{background:#e8f7ef;color:#1a7f37;cursor:pointer}
   .sent{cursor:pointer}
   .paper.frozen textarea{background:#f7f7f9;color:var(--text-2)}
-  .fu-actions{display:inline-flex;gap:4px;margin-left:6px}
-  .fu-actions button{font-size:11px;padding:3px 8px}
+  .fu-actions{display:inline-flex;gap:6px;margin-left:8px;flex:none;align-items:center}
+  .fu-actions button{font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:10px;
+    border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;white-space:nowrap}
+  .fu-actions button:hover{background:var(--surface-2)}
   .usage-meter{font-size:11.5px;color:var(--muted,#666);margin-top:6px;line-height:1.4}
   .usage-meter b{color:var(--text,#222);font-weight:600}
   .pretriage{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f7f7f9;border:1px solid var(--hair,#e4e7eb);font-size:12.5px;line-height:1.45}
@@ -588,14 +600,16 @@
   <div id="triage" class="triage-bar hidden">
     <button type="button" class="btn sm primary" id="triage_batch">Rank Sourced (batch match)</button>
     <button type="button" class="btn sm" id="triage_dedupe">Dedupe board</button>
-    <button type="button" class="btn sm" id="triage_close_offlane" title="Move off-lane Sourced cards to Closed">Close off-lane Sourced</button>
-    <label>Sort <select id="triage_sort" title="Sort Sourced column">
+    <button type="button" class="btn sm" id="triage_close_offlane" title="Moves Sourced cards that don’t match your titles/keywords into Closed">Remove junk from Sourced</button>
+    <label class="triage-field">Sort
+      <select id="triage_sort" title="Sort Sourced column">
       <option value="match_desc">Match ↓</option>
       <option value="match_asc">Match ↑</option>
       <option value="newest">Newest</option>
       <option value="company">Company A–Z</option>
     </select></label>
-    <label>Filter <select id="triage_filter" title="Filter Sourced by verdict">
+    <label class="triage-field">Filter
+      <select id="triage_filter" title="Filter Sourced by verdict">
       <option value="all">All</option>
       <option value="apply">Worth applying</option>
       <option value="stretch">Stretch</option>
@@ -684,10 +698,16 @@
             <button type="button" class="vbtn stretch" data-v="stretch" title="Reach role — still worth a tailored pack">Stretch</button>
             <button type="button" class="vbtn skip" data-v="skip" title="Low interest — stays on the board">Skip</button>
           </div>
+          <div class="next-step" id="dw_nextstep">
+            <b>Next:</b> build a resume tailored to this JD, then open the company site and apply yourself.
+          </div>
+          <button class="btn primary block" id="dw_tailor" style="font-size:15px;padding:14px 16px;margin-top:10px">Build resume for this job →</button>
+          <p class="muted" id="dw_ctahint" style="margin:8px 0 0;font-size:12.5px;line-height:1.45;text-align:center">Check my match (optional) · tag Worth applying / Stretch / Skip · then Build resume.</p>
+          <div class="why hidden" id="dw_skipwhy" style="margin-top:10px"><b>You marked this Skip.</b> It stays on the board — nothing is deleted. You can still build a resume.</div>
         </div>
         <details class="section more-tools">
           <summary class="lbl" style="cursor:pointer">More tools — evaluate, drafts, prep</summary>
-          <p class="muted" style="margin:8px 0;font-size:12.5px;line-height:1.5">Primary path: <b>Check my match</b> → footer <b>Build resume</b> → <b>Open JD ↗</b> to apply yourself.</p>
+          <p class="muted" style="margin:8px 0;font-size:12.5px;line-height:1.5">Optional helpers. Main path is <b>Build resume</b> above, then <b>Open JD ↗</b>.</p>
           <div class="lbl">Evaluate</div>
           <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Decision pack from your match + JD. You still tag Worth applying / Stretch / Skip.</p>
           <div class="row" style="gap:8px;align-items:center">
@@ -741,10 +761,7 @@
         </details>
       </div>
       <div class="drawer-f">
-        <div class="why hidden" id="dw_skipwhy"><b>You marked this Skip.</b> It stays on the board — nothing is deleted. You can still build a resume.</div>
-        <p class="cta-hint" id="dw_ctahint"><b>Resume builder</b> opens here → generate a pack for this job.</p>
-        <button class="btn primary block" id="dw_tailor" style="font-size:15px;padding:14px 16px">Build resume for this job →</button>
-        <div class="esc" id="dw_esc">Esc closes — JD kept. Open JD ↗ is how you apply. “Worth applying” only tags the card.</div>
+        <div class="esc" id="dw_esc">Esc closes — JD kept. Open JD ↗ is how you apply. Tags never submit an application.</div>
       </div>
     </aside>
   </div>
@@ -2014,7 +2031,7 @@ async function load(){
   $('followups').classList.toggle('hidden', !fu.length)
   $('followups').innerHTML = fu.length ? '<span class="fu-label">⏰ FOLLOW-UPS DUE</span><div class="fu-row">'+fu.map(f=>{
     const label=`${f.r.company||'—'} — ${f.r.title||''} · ${f.overdue?'follow up now':'by '+f.due.toISOString().slice(0,10)}`
-    return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.r.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.r.id}" title="Draft follow-up note — never sends">Draft note</button></span></span>`
+    return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.r.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.r.id}" title="Draft a follow-up note — never sends">Draft follow-up note</button></span></span>`
   }).join('')+'</div>' : ''
   $('followups').querySelectorAll('[data-fu]').forEach(el=>el.onclick=()=>openRole(+el.dataset.fu))
   $('followups').querySelectorAll('[data-fu-draft]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); draftFollowupNote(+el.dataset.fuDraft) })
@@ -2911,10 +2928,21 @@ function renderMaterialsGaps(){
   const drawer=$('dw_gaps'), rail=$('bv_gaps')
   if(!total){
     const matchedVisible = $('rp2_scorebox') && !$('rp2_scorebox').classList.contains('hidden')
-    const hasScore = rp2LastKnownScore()
-    const empty = (matchedVisible || !isNaN(hasScore))
-      ? '<p class="muted" style="margin:0;font-size:13px">No specific gaps flagged — your materials already cover the keywords we checked. Open <b>Tailor resume</b> to build a pack.</p>'
-      : '<p class="muted" style="margin:0;font-size:13px">Gaps appear after a match check — materials you already have, and suggestions worth adding.</p>'
+    const score = rp2LastKnownScore()
+    const hasScore = !isNaN(score)
+    const summary = (($('rp2_summary')?.textContent)||'').trim()
+    let empty
+    if(hasScore && score < 55){
+      empty = `<div class="gaps-explain"><b>Match ${score}% is a weak overall fit</b> — not “no gaps.”
+        <span class="why-low">The keyword checklist can look empty while the match still fails on market, fluency, seniority, or scope (read the summary above). Build a resume only if you still want this role as a stretch.</span>
+        ${summary?`<p class="muted" style="margin:10px 0 0;font-size:12.5px;line-height:1.45">${esc(summary.slice(0,420))}${summary.length>420?'…':''}</p>`:''}
+        <p style="margin:10px 0 0;font-size:13px">Next: <b>Build resume for this job</b> below, or <b>Skip</b>.</p></div>`
+    } else if(matchedVisible || hasScore){
+      empty = `<div class="gaps-explain">No keyword gaps flagged for this check${hasScore?` (match ${score}%)`:''}. That means overlapping keywords — not a guarantee you should apply.
+        <p style="margin:10px 0 0">Next: <b>Build resume for this job</b> below if you want a pack, then apply via <b>Open JD ↗</b>.</p></div>`
+    } else {
+      empty = '<p class="muted" style="margin:0;font-size:13px">Gaps appear after <b>Check my match</b> — what’s already in your materials, and what’s still missing.</p>'
+    }
     if(drawer) drawer.innerHTML=empty
     if(rail) rail.innerHTML=empty
     rp2PaintMaterialsScore()
@@ -4722,6 +4750,7 @@ function syncVerdictUI(v){
     b.classList.toggle('skip', b.dataset.v==='skip' && b.dataset.v===v)
   })
   const skip = v==='skip'
+  const applyish = v==='apply' || v==='stretch'
   $('dw_skipwhy')?.classList.toggle('hidden', !skip)
   const label = skip ? 'Build resume anyway →' : 'Build resume for this job →'
   const tailor=$('dw_tailor'); if(tailor){
@@ -4731,15 +4760,23 @@ function syncVerdictUI(v){
     tailor.classList.toggle('primary', !skip)
     tailor.classList.toggle('ghost', !!skip)
   }
+  if($('dw_nextstep')){
+    if(skip) $('dw_nextstep').innerHTML='<b>Skipped.</b> Card stays put. You can still build a resume, or drag it to Closed later.'
+    else if(v==='stretch') $('dw_nextstep').innerHTML='<b>Next:</b> this is a stretch — still build a resume if you want the pack, then apply yourself via <b>Open JD ↗</b>.'
+    else if(v==='apply') $('dw_nextstep').innerHTML='<b>Next:</b> press <b>Build resume for this job</b> below → edit the draft → download → apply on the company site via <b>Open JD ↗</b>.'
+    else $('dw_nextstep').innerHTML='<b>Next:</b> build a resume tailored to this JD, then open the company site and apply yourself.'
+  }
   if($('dw_ctahint')){
-    const matched = $('rp2_scorebox') && !$('rp2_scorebox').classList.contains('hidden')
-    if(skip) $('dw_ctahint').innerHTML='<b>Skip</b> only tags the card — builder still works below.'
-    else if(matched) $('dw_ctahint').innerHTML='<b>Resume builder</b> → teal button opens it for this job.'
-    else $('dw_ctahint').innerHTML='Check my match (optional) · tag Worth applying / Stretch / Skip · then <b>Build resume</b>.'
+    if(skip) $('dw_ctahint').textContent='Skip only tags the card — Build resume still works.'
+    else if(applyish) $('dw_ctahint').textContent='Tagged. Build resume is the next button — it does not apply for you.'
+    else $('dw_ctahint').textContent='Check my match (optional) · tag Worth applying / Stretch / Skip · then Build resume.'
   }
   if($('dw_esc')) $('dw_esc').textContent = skip
     ? 'Skip keeps it on the board — nothing is deleted. Drag the card to move stages.'
     : 'Esc closes — JD kept. Open JD ↗ is how you apply. Tags never submit an application.'
+  if(applyish){
+    try{ $('dw_tailor')?.scrollIntoView({ behavior:'smooth', block:'nearest' }) }catch(_e){}
+  }
 }
 function syncBuilderChrome(){
   if(!CURROLE) return
@@ -5153,7 +5190,7 @@ $('triage_dedupe')?.addEventListener('click', async ()=>{
   logEvent('board_dedupe', null, { closed })
 })
 $('triage_close_offlane')?.addEventListener('click', async ()=>{
-  const st=$('triage_status'); if(st){ st.dataset.busy='1'; st.textContent='Closing off-lane Sourced…' }
+  const st=$('triage_status'); if(st){ st.dataset.busy='1'; st.textContent='Removing junk from Sourced…' }
   const b=$('triage_close_offlane'), o=b?.textContent; if(b) b.disabled=true
   let closed=0, closedAe=0
   const roles=Object.values(ROLESMAP||{})
@@ -5168,8 +5205,8 @@ $('triage_close_offlane')?.addEventListener('click', async ()=>{
   await load()
   if(st){
     st.textContent = closed
-      ? `Closed ${closed} off-lane Sourced card${closed>1?'s':''}.${closedAe?` Closed column still holds ${closedAe} banned-title scrapes — safe to ignore.`:''}`
-      : (closedAe ? `No Sourced off-lane left. Closed still has ${closedAe} banned-title scrapes.` : 'No off-lane Sourced cards to close.')
+      ? `Moved ${closed} junk Sourced card${closed>1?'s':''} to Closed (didn’t match your titles/keywords).${closedAe?` Closed still holds ${closedAe} old banned-title scrapes — safe to ignore.`:''}`
+      : (closedAe ? `No junk left in Sourced. Closed still has ${closedAe} banned-title scrapes.` : 'No junk Sourced cards to remove.')
     delete st.dataset.busy
   }
   if(b){ b.disabled=false; b.textContent=o }
