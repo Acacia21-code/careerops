@@ -1930,8 +1930,22 @@ let ROLESMAP={}, HASDOC=new Set()
 async function load(){
   const [{ data:roles }, { data:reps }] = await Promise.all([
     sb.from('mt_roles').select('*').order('created_at',{ascending:false}),
-    sb.from('mt_reports').select('role_id,kind')
+    sb.from('mt_reports').select('role_id,kind,match_score,created_at').order('created_at',{ascending:false})
   ])
+  // Board cards used to ignore match reports — so Rank Sourced could "succeed" (report saved)
+  // while the Sourced pill stayed blank if mt_roles.match_score didn't stick.
+  const latestMatch={}
+  for(const x of reps||[]){
+    if(x.kind!=='match' || x.match_score==null || latestMatch[x.role_id]!=null) continue
+    const n = typeof x.match_score==='number' ? x.match_score : parseInt(String(x.match_score),10)
+    if(!isNaN(n)) latestMatch[x.role_id]=n
+  }
+  for(const r of roles||[]){
+    const have = parseInt(String(r.match_score||''),10)
+    if(isNaN(have) && latestMatch[r.id]!=null){
+      r.match_score = latestMatch[r.id]+'%'
+    }
+  }
   ROLESMAP = Object.fromEntries((roles||[]).map(r=>[r.id,r]))
   HASDOC = new Set((reps||[]).filter(x=>x.kind==='resume'||x.kind==='cover').map(x=>x.role_id))
   FIND_PREFS = loadFindPrefs()
@@ -1956,7 +1970,7 @@ async function load(){
     $('triage').classList.toggle('hidden', sourcedN===0 && hiddenN===0)
     if($('triage_status') && !$('triage_status').dataset.busy)
       $('triage_status').textContent = sourcedN
-        ? `${sourcedN} in Sourced (${sourcedUnscored} unscored) — Rank Sourced scores pasted JDs (never applies).`
+        ? `${sourcedN} in Sourced (${sourcedUnscored} unscored) — Rank Sourced scores them (never applies).`
         : (hiddenN ? `${hiddenN} Sourced filtered (off-lane / age / remote) — click “filtered Sourced — show” above.` : 'No Sourced roles right now.')
   }
   TRIAGE_PREFS = loadTriagePrefs()
@@ -2147,7 +2161,10 @@ async function openRole(id){
 }
 async function saveJd(role, jd){
   role.jd=jd
-  await sb.from('mt_roles').update({ jd }).eq('id',role.id)
+  if(ROLESMAP[role.id]) ROLESMAP[role.id].jd=jd
+  const { error } = await sb.from('mt_roles').update({ jd }).eq('id',role.id)
+  if(error) console.warn('saveJd failed', role.id, error.message||error)
+  return !error
 }
 let jdSaveTimer=null
 $('rp_jd').addEventListener('input',()=>{
@@ -5119,19 +5136,23 @@ $('rp2_jd')?.addEventListener('input', ()=>{
 
 // ---- Sourced triage: batch match + dedupe ----
 async function ensureRoleJd(r){
+  // Re-read from DB — don't trust a stale ROLESMAP copy
+  try{
+    const { data } = await sb.from('mt_roles').select('jd,url').eq('id', r.id).maybeSingle()
+    if(data){ if(data.jd!=null) r.jd=data.jd; if(data.url) r.url=data.url }
+  }catch(_e){}
   const existing=(r.jd||'').trim()
-  if(existing.length>200 && !jdRejectReason(existing)) return { ok:true, jd:existing, fetched:false }
-  if(!r.url) return { ok:false, reason:'no_url' }
+  if(existing.length>80 && !jdRejectReason(existing)) return { ok:true, jd:existing, fetched:false }
+  if(!r.url) return { ok:false, reason: existing ? 'jd_rejected' : 'no_url' }
   try{
     const { data, error } = await sb.functions.invoke('fetch-jd',{ body:{ url:r.url } })
-    if(error || !data?.jd) return { ok:false, reason:'fetch_failed' }
+    if(error || !data?.jd) return { ok:false, reason: existing ? 'jd_rejected' : 'fetch_failed' }
     const got=acceptFetchedJd(data.jd)
     if(!got.ok) return { ok:false, reason:'reject_'+got.reason }
     await saveJd(r, got.jd)
-    if(ROLESMAP[r.id]) ROLESMAP[r.id].jd=got.jd
     return { ok:true, jd:got.jd, fetched:true }
   }catch(_e){
-    return { ok:false, reason:'fetch_error' }
+    return { ok:false, reason: existing ? 'jd_rejected' : 'fetch_error' }
   }
 }
 $('triage_batch')?.addEventListener('click', async ()=>{
@@ -5144,21 +5165,20 @@ $('triage_batch')?.addEventListener('click', async ()=>{
     if(st){ st.textContent='No visible Sourced roles. Click “filtered Sourced — show” if cards are hidden, or Run job search.'; delete st.dataset.busy }
     b.disabled=false; b.textContent=o; return
   }
-  // Pull JD text for cards that only have a link (Find adds rarely include JD body)
-  const ready=[], skipped=[]
+  const ready=[], skipped=[], scored=[], failed=[]
   let fetchedN=0
   for(const r of sourced){
     if(st) st.textContent=`Loading JDs… ${ready.length+skipped.length+1}/${sourced.length}`
     const got=await ensureRoleJd(r)
-    if(got.ok && (got.jd||'').trim().length>200){
+    if(got.ok && (got.jd||'').trim().length>80){
       if(got.fetched) fetchedN++
-      ready.push({ ...r, jd: got.jd })
+      ready.push({ id:r.id, company:r.company, title:r.title, jd:got.jd, url:r.url, stage:r.stage })
     } else {
-      skipped.push({ co:r.company||'—', title:r.title||'', why: got.reason||'no_jd' })
+      skipped.push({ co:r.company||'—', why: got.reason||'no_jd' })
     }
   }
-  let done=0, ok=0, fail=0
-  const queue=ready.slice(0,25) // cap per click
+  let done=0
+  const queue=ready.slice(0,25)
   async function one(r){
     try{
       const tri=await cheapPreTriage(r, { resume, jd:r.jd })
@@ -5169,35 +5189,44 @@ $('triage_batch')?.addEventListener('click', async ()=>{
         data = await invokeMatch({ resume_text:resume, jd_text:r.jd })
         bumpUsage('match')
       }
-      if(data && !data.error && typeof data.match_score==='number'){
-        await sb.from('mt_roles').update({ match_score: data.match_score+'%', fit_score: data.match_score>=72?'A':data.match_score>=55?'B':'C' }).eq('id', r.id)
-        await sb.from('mt_reports').insert({ role_id:r.id, kind:'match', match_score:data.match_score, missing_keywords:data.missing||[] })
-        const pack=buildEvaluatePack(r, data)
-        if(tri.skipLlm) pack.suggest='skip'
-        await sb.from('mt_reports').insert({ role_id:r.id, kind:'evaluate', match_score:pack.score, missing_keywords:pack.missing||[], rewritten:JSON.stringify(pack) })
-        if(pack.suggest==='apply'||pack.suggest==='stretch'||pack.suggest==='skip') setVerdict(r.id, pack.suggest)
-        ok++
-      } else fail++
-    }catch(_e){ fail++ }
+      if(!(data && !data.error && typeof data.match_score==='number')){
+        failed.push({ co:r.company||'—', why:'no_score' }); return
+      }
+      const label = data.match_score+'%'
+      // Write match_score alone first — bundling fit_score used to fail the whole update silently
+      let { error: uerr } = await sb.from('mt_roles').update({ match_score: label }).eq('id', r.id)
+      if(uerr){
+        const retry = await sb.from('mt_roles').update({ match_score: String(data.match_score) }).eq('id', r.id)
+        uerr = retry.error
+      }
+      if(!uerr){
+        try{ await sb.from('mt_roles').update({ fit_score: data.match_score>=72?'A':data.match_score>=55?'B':'C' }).eq('id', r.id) }catch(_e){}
+      }
+      await sb.from('mt_reports').insert({ role_id:r.id, kind:'match', match_score:data.match_score, missing_keywords:data.missing||[] })
+      const pack=buildEvaluatePack(r, data)
+      if(tri.skipLlm) pack.suggest='skip'
+      try{ await sb.from('mt_reports').insert({ role_id:r.id, kind:'evaluate', match_score:pack.score, missing_keywords:pack.missing||[], rewritten:JSON.stringify(pack) }) }catch(_e){}
+      if(pack.suggest==='apply'||pack.suggest==='stretch'||pack.suggest==='skip') setVerdict(r.id, pack.suggest)
+      if(ROLESMAP[r.id]) ROLESMAP[r.id].match_score = label
+      if(uerr) failed.push({ co:r.company||'—', why:'save_failed:'+(uerr.message||'update') })
+      else scored.push({ co:r.company||'—', score:data.match_score })
+    }catch(e){ failed.push({ co:r.company||'—', why:(e&&e.message)||'error' }) }
     done++
-    if(st) st.textContent=`Batch ${done}/${queue.length} · ok ${ok} · fail ${fail}`
+    if(st) st.textContent=`Batch ${done}/${queue.length} · scored ${scored.length} · failed ${failed.length}`
   }
   let i=0
   async function worker(){ while(i<queue.length){ const r=queue[i++]; await one(r) } }
   if(queue.length) await Promise.all([worker(), worker()])
-  logEvent('triage_batch', null, { queued: queue.length, ok, fail, sourced: sourced.length, skipped: skipped.length, fetched: fetchedN })
+  logEvent('triage_batch', null, { queued: queue.length, scored: scored.length, failed: failed.length, skipped: skipped.length, fetched: fetchedN })
   await load()
   if(st){
-    const skipNames=skipped.slice(0,4).map(s=>s.co).join(', ')
-    const skipBit=skipped.length
-      ? ` Skipped ${skipped.length} without a usable JD${skipNames?` (${skipNames}${skipped.length>4?',…':''})`:' — open card → paste JD'}.`
-      : ''
-    const fetchBit=fetchedN?` Loaded ${fetchedN} JD${fetchedN>1?'s':''} from posting links.` : ''
-    st.textContent = queue.length
-      ? `Ranked ${ok}/${queue.length} Sourced.${fetchBit}${fail?` ${fail} failed.`:''}${skipBit}`
-      : (sourced.length
-        ? `Couldn’t batch-match — none of the ${sourced.length} visible Sourced cards have a usable JD yet.${skipBit} Open a card and paste the posting, or try again.`
-        : 'No Sourced roles.')
+    const scoredBit = scored.length ? `Scored ${scored.map(s=>s.co+' '+s.score+'%').join(', ')}.` : ''
+    const failBit = failed.length ? ` Failed: ${failed.map(f=>f.co).join(', ')}.` : ''
+    const skipBit = skipped.length ? ` No usable JD: ${skipped.map(s=>s.co).join(', ')}.` : ''
+    const fetchBit = fetchedN ? ` Loaded ${fetchedN} JD${fetchedN>1?'s':''} from links.` : ''
+    st.textContent = (scoredBit || failBit || skipBit)
+      ? `${scoredBit}${fetchBit}${failBit}${skipBit}`.trim()
+      : 'Nothing to rank.'
     delete st.dataset.busy
   }
   b.disabled=false; b.textContent=o
