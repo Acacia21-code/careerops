@@ -1,14 +1,16 @@
 # CareerOps
 
 **Your private job-search command center.**  
-Find roles, track the pipeline, check fit, and generate tailored drafts from **only what you provide** — then you apply yourself.
+Find roles across **87 company career boards**, track the pipeline, check fit, and generate tailored drafts from **only what you provide** — then you apply yourself.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/demo-careerops.telivity.app-0ccabf)](https://careerops.telivity.app)
+[![Job boards](https://img.shields.io/badge/job%20boards-87%20default-0ccabf)](supabase/boards.default.json)
 [![npm](https://img.shields.io/npm/v/@telivity/careerops.svg)](https://www.npmjs.com/package/@telivity/careerops)
 [![Skill](https://img.shields.io/badge/agent%20skill-careerops-0ccabf)](docs/SKILL.md)
 
 **Live demo:** [careerops.telivity.app](https://careerops.telivity.app)  
+**Default Find pack:** **87** verified public company boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) — see [`supabase/boards.default.json`](supabase/boards.default.json). Override with your own list.  
 **Model weights (separate):** [CareerOps-4B on Hugging Face](https://huggingface.co/telivity/CareerOps-4B)  
 **Agent skill:** `npx @telivity/careerops@1.1.0 init` (or latest) — modes scan / evaluate / rank / tailor / interview / followup / outcome ([docs](docs/SKILL.md))
 
@@ -42,7 +44,7 @@ The product doctrine is blunt and encoded in the UI:
 
 Sourced → Researched → Conversation → Applied → Interview → Offer → Rejected → Closed.
 
-- **Run job search** scans **90+** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) using your titles, keywords, seniority, and locations — with server + client **dedupe** so the same role doesn’t land repeatedly.  
+- **Run job search** scans the default pack of **87** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters; [`boards.default.json`](supabase/boards.default.json)) using your titles, keywords, seniority, and locations — with server + client **dedupe** so the same role doesn’t land repeatedly.  
 - **Find hygiene** (Settings): company **blocklist**, **max posting age**, **remote preference**, and soft-hide of blocked / stale / non-matching roles.  
 - **Triage** on Sourced: batch match, dedupe, sort/filter by verdict — tags scores only; never applies.  
 - **Add role**: paste **link + job description** when a scrape is incomplete.  
@@ -147,7 +149,7 @@ flowchart LR
 | SPA (`web/`), edge function source (`supabase/functions/`), schema SQL, agent skill, training *code* | Live Supabase project, API keys, operator data, optional custom ATS board lists |
 | Model **weights** on Hugging Face | Training datasets / résumé-derived eval sets |
 
-Search is a **configurable ATS addon** (Greenhouse / Ashby / Lever-style public JSON). The product value is the ops loop (board → decide → tailor → sent), not owning the largest job spider. You can also **Add role** / paste from any external search tool — CareerOps does not auto-apply.
+Search is a **configurable ATS addon**: default **87** company boards in [`supabase/boards.default.json`](supabase/boards.default.json) (Greenhouse / Ashby / Lever / Workday / SmartRecruiters). Bring your own board list for more. The product value is the ops loop (board → decide → tailor → sent). You can also **Add role** / paste from any external search tool — CareerOps does not auto-apply.
 
 ---
 
@@ -174,7 +176,7 @@ npm run deploy                          # functions then web (or split below)
 
 Optional free-tier secrets on the project: `FREE_AI_ENDPOINT`, `FREE_AI_TOKEN`, `FREE_AI_MODEL`, `FREE_AI_ALLOW` (`*` = all authenticated users).
 
-Job search boards: copy `supabase/boards.example.json` into profile field `ats_boards` (JSON), or pass `{ "boards": { … } }` when invoking `run-search-mt`.
+Job search boards: default pack is **87** companies in [`supabase/boards.default.json`](supabase/boards.default.json). Copy [`supabase/boards.example.json`](supabase/boards.example.json) into profile field `ats_boards` (JSON), or pass `{ "boards": { … } }` when invoking `run-search-mt`, to override.
 
 `web/config.js` is gitignored — never commit real keys.
 
