@@ -1531,29 +1531,59 @@ function setVerdict(id, v){
   const m=verdictStore(); if(v) m[id]=v; else delete m[id]
   localStorage.setItem('co_verdicts', JSON.stringify(m))
 }
+/** Role ids are UUIDs — never coerce with unary +. */
+function roleIdOf(x){
+  if(x==null || x==='') return null
+  const s=String(x).trim()
+  return s && s!=='NaN' && s!=='undefined' ? s : null
+}
+function findRole(id){
+  const key=roleIdOf(id)
+  if(!key) return null
+  return ROLESMAP[key] || Object.values(ROLESMAP||{}).find(r=>roleIdOf(r?.id)===key) || null
+}
 /** User says this role is not for them — move to Closed (recoverable), not hard-delete. */
 async function dismissRole(id){
-  const role=ROLESMAP[id]
-  if(!role || role.stage===CLOSED) return
+  const key=roleIdOf(id)
+  const role=findRole(key)
+  if(!key){ console.warn('dismissRole: bad id', id); return false }
+  if(!role){ console.warn('dismissRole: role missing', key); return false }
+  if(role.stage===CLOSED) return true
   const from=role.stage
-  const note=(role.notes?role.notes+' · ':'')+'user: not for me'
-  const { error } = await sb.from('mt_roles').update({ stage: CLOSED, notes: note }).eq('id', id)
-  if(error){ console.warn('dismissRole failed', error.message||error); return }
-  setVerdict(id, 'skip')
-  if(ROLESMAP[id]){ ROLESMAP[id].stage=CLOSED; ROLESMAP[id].notes=note }
-  logEvent('role_dismiss', id, { from, reason:'not_for_me' })
-  if(CURROLE?.id===id){ try{ rp2FlushSel() }catch(_e){}; closeDrawer() }
+  // Stage alone first — bundling notes used to fail the whole update silently
+  let { data, error } = await sb.from('mt_roles').update({ stage: CLOSED }).eq('id', key).select('id')
+  if(error || !data?.length){
+    console.warn('dismissRole failed', error?.message||error || '0 rows')
+    if($('triage_status')) $('triage_status').textContent='Couldn’t hide that role — try again.'
+    if($('rp2_err')) $('rp2_err').textContent='Couldn’t hide this role. Check you’re signed in, then try again.'
+    return false
+  }
+  try{
+    const note=(role.notes?role.notes+' · ':'')+'user: not for me'
+    await sb.from('mt_roles').update({ notes: note }).eq('id', key)
+    if(ROLESMAP[key]) ROLESMAP[key].notes=note
+  }catch(_e){}
+  setVerdict(key, 'skip')
+  if(ROLESMAP[key]) ROLESMAP[key].stage=CLOSED
+  logEvent('role_dismiss', key, { from, reason:'not_for_me' })
+  if(roleIdOf(CURROLE?.id)===key){ try{ rp2FlushSel() }catch(_e){}; closeDrawer() }
   await load()
+  return true
 }
 /** Put a Closed “Not for me” role back into Sourced. */
 async function restoreDismissedRole(id){
-  const role=ROLESMAP[id]
-  if(!role || role.stage!==CLOSED) return
-  const { error } = await sb.from('mt_roles').update({ stage: 'sourced' }).eq('id', id)
-  if(error){ console.warn('restoreDismissedRole failed', error.message||error); return }
-  if(ROLESMAP[id]) ROLESMAP[id].stage='sourced'
-  logEvent('role_restore', id, { to:'sourced' })
+  const key=roleIdOf(id)
+  const role=findRole(key)
+  if(!key || !role || role.stage!==CLOSED) return false
+  const { data, error } = await sb.from('mt_roles').update({ stage: 'sourced' }).eq('id', key).select('id')
+  if(error || !data?.length){
+    console.warn('restoreDismissedRole failed', error?.message||error || '0 rows')
+    return false
+  }
+  if(ROLESMAP[key]) ROLESMAP[key].stage='sourced'
+  logEvent('role_restore', key, { to:'sourced' })
   await load()
+  return true
 }
 function sentStore(){ try{ return JSON.parse(localStorage.getItem('co_sent')||'{}')||{} }catch(_e){ return {} } }
 function isSent(id){ return !!sentStore()[id] }
@@ -2075,10 +2105,10 @@ async function load(){
     btn.onclick=e=>{ e.stopPropagation(); $('addrolebtn')?.click() }
   })
   $('board').querySelectorAll('[data-not-me]').forEach(btn=>{
-    btn.onclick=e=>{ e.stopPropagation(); dismissRole(+btn.dataset.notMe) }
+    btn.onclick=e=>{ e.preventDefault(); e.stopPropagation(); dismissRole(btn.dataset.notMe) }
   })
   $('board').querySelectorAll('[data-restore]').forEach(btn=>{
-    btn.onclick=e=>{ e.stopPropagation(); restoreDismissedRole(+btn.dataset.restore) }
+    btn.onclick=e=>{ e.preventDefault(); e.stopPropagation(); restoreDismissedRole(btn.dataset.restore) }
   })
   // ⏰ follow-ups: derived from Applied/Interview — due 14 days after landing there; click opens the role
   const DAY=864e5, now=Date.now()
@@ -2090,8 +2120,8 @@ async function load(){
     const label=`${f.r.company||'—'} — ${f.r.title||''} · ${f.overdue?'follow up now':'by '+f.due.toISOString().slice(0,10)}`
     return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.r.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.r.id}" title="Draft a follow-up note — never sends">Draft follow-up note</button></span></span>`
   }).join('')+'</div>' : ''
-  $('followups').querySelectorAll('[data-fu]').forEach(el=>el.onclick=()=>openRole(+el.dataset.fu))
-  $('followups').querySelectorAll('[data-fu-draft]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); draftFollowupNote(+el.dataset.fuDraft) })
+  $('followups').querySelectorAll('[data-fu]').forEach(el=>el.onclick=()=>openRole(el.dataset.fu))
+  $('followups').querySelectorAll('[data-fu-draft]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); draftFollowupNote(el.dataset.fuDraft) })
 }
 // unwrap the real error message from Edge Function failures (instead of "non-2xx status code")
 async function fnMsg(err){
@@ -2162,15 +2192,16 @@ board.addEventListener('drop',async e=>{e.preventDefault(); const col=e.target.c
   dragId=null; load()})
 let suppressClick=false
 board.addEventListener('dragend',()=>{ suppressClick=true; setTimeout(()=>suppressClick=false,150) })
-board.addEventListener('click',e=>{ if(suppressClick) return; if(e.target.closest('a')) return
-  const c=e.target.closest('.cardlet'); if(c) openRole(+c.dataset.id) })
+board.addEventListener('click',e=>{ if(suppressClick) return; if(e.target.closest('a,button')) return
+  const c=e.target.closest('.cardlet'); if(c) openRole(c.dataset.id) })
 
 // ---- role panel: JD auto-load → scan / tailor / cover / jobscan / download / apply ----
 let CURROLE=null, RPKIND='resume'
 $('rp_close').onclick=()=> $('rolepanel').classList.add('hidden')
 async function openRole(id){
   if(NEWPANEL) return openRole2(id)
-  CURROLE=ROLESMAP[id]; if(!CURROLE) return
+  CURROLE=findRole(id); if(!CURROLE) return
+  id=roleIdOf(CURROLE.id)
   logEvent('role_open', id)
   $('rp_title').textContent=CURROLE.title; $('rp_co').textContent=(CURROLE.company||'')+(CURROLE.match_score?' · '+CURROLE.match_score+' match':'')
   $('rp_apply').style.display = CURROLE.url ? '' : 'none'; if(CURROLE.url) $('rp_apply').href=CURROLE.url
@@ -2449,7 +2480,8 @@ let RP2ROWS=[], RP2SEL={bullet_ids:[],edits:{}}, RP2TAG={}, RP2EDIT=null, RP2EDI
 $('rp2_close').onclick=()=>{ rp2FlushSel(); closeDrawer() }
 
 async function openRole2(id){
-  CURROLE=ROLESMAP[id]; if(!CURROLE) return
+  CURROLE=findRole(id); if(!CURROLE) return
+  id=roleIdOf(CURROLE.id)
   closeBuilder()
   logEvent('role_open', id, { panel:'drawer' })
   RP2EDIT=null; RP2EDITBID=null; RP2TAG={}; RP2SEL={bullet_ids:[],edits:{}}; RP2SELDIRTY=false; RP2LASTMISS=[]
