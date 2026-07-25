@@ -617,7 +617,7 @@
       <option value="unscored">Unscored</option>
       <option value="no_verdict">No verdict</option>
     </select></label>
-    <span class="muted" id="triage_status">Sourced = new Find adds (often unscored). Rank Sourced scores JDs you pasted — never applies.</span>
+    <span class="muted" id="triage_status">Sourced = new Find adds. Rank Sourced loads JDs from links when possible, then scores — never applies.</span>
   </div>
   <div id="stage" class="stage">
     <div id="board" class="board"></div>
@@ -1946,8 +1946,8 @@ async function load(){
   const sourcedUnscored=(byStage.sourced||[]).filter(r=>{ const n=parseInt(String(r.match_score||''),10); return isNaN(n) }).length
   const hiddenBit = hiddenN
     ? (FIND_SHOW_HIDDEN
-      ? ` · showing ${hiddenN} normally hidden`
-      : ` · <span class="hidden-chip" id="status_hidden" title="Click to reveal soft-hidden Sourced">${hiddenN} hidden — show</span>`)
+      ? ` · showing ${hiddenN} filtered Sourced`
+      : ` · <span class="hidden-chip" id="status_hidden" title="Soft-hidden Sourced: off-lane titles, blocklist, over-age, or wrong remote pref. Click to reveal.">${hiddenN} filtered Sourced — show</span>`)
     : (FIND_SHOW_HIDDEN ? ' · <span class="hidden-chip" id="status_hidden">hide filtered again</span>' : '')
   $('status').innerHTML = active+' active on board'+hiddenBit+' · click a card to check fit · drag between columns'
   const sh=$('status_hidden')
@@ -1957,7 +1957,7 @@ async function load(){
     if($('triage_status') && !$('triage_status').dataset.busy)
       $('triage_status').textContent = sourcedN
         ? `${sourcedN} in Sourced (${sourcedUnscored} unscored) — Rank Sourced scores pasted JDs (never applies).`
-        : (hiddenN ? `${hiddenN} Sourced hidden by Find filters — click “hidden — show” above.` : 'No Sourced roles right now.')
+        : (hiddenN ? `${hiddenN} Sourced filtered (off-lane / age / remote) — click “filtered Sourced — show” above.` : 'No Sourced roles right now.')
   }
   TRIAGE_PREFS = loadTriagePrefs()
   if($('triage_sort')) $('triage_sort').value = TRIAGE_PREFS.sort
@@ -5118,15 +5118,47 @@ $('rp2_jd')?.addEventListener('input', ()=>{
 })
 
 // ---- Sourced triage: batch match + dedupe ----
+async function ensureRoleJd(r){
+  const existing=(r.jd||'').trim()
+  if(existing.length>200 && !jdRejectReason(existing)) return { ok:true, jd:existing, fetched:false }
+  if(!r.url) return { ok:false, reason:'no_url' }
+  try{
+    const { data, error } = await sb.functions.invoke('fetch-jd',{ body:{ url:r.url } })
+    if(error || !data?.jd) return { ok:false, reason:'fetch_failed' }
+    const got=acceptFetchedJd(data.jd)
+    if(!got.ok) return { ok:false, reason:'reject_'+got.reason }
+    await saveJd(r, got.jd)
+    if(ROLESMAP[r.id]) ROLESMAP[r.id].jd=got.jd
+    return { ok:true, jd:got.jd, fetched:true }
+  }catch(_e){
+    return { ok:false, reason:'fetch_error' }
+  }
+}
 $('triage_batch')?.addEventListener('click', async ()=>{
   const st=$('triage_status'); if(st){ st.dataset.busy='1'; st.textContent='Batch matching…' }
   const b=$('triage_batch'), o=b.textContent; b.disabled=true
   const resume=(PROFILE?.resume_text||'').trim()
   if(!resume){ if(st) st.textContent='Add your resume in Settings first.'; b.disabled=false; b.textContent=o; if(st) delete st.dataset.busy; return }
   const sourced=Object.values(ROLESMAP).filter(r=>r.stage==='sourced' && !shouldHideRole(r))
-  const withJd=sourced.filter(r=>(r.jd||'').trim().length>200)
+  if(!sourced.length){
+    if(st){ st.textContent='No visible Sourced roles. Click “filtered Sourced — show” if cards are hidden, or Run job search.'; delete st.dataset.busy }
+    b.disabled=false; b.textContent=o; return
+  }
+  // Pull JD text for cards that only have a link (Find adds rarely include JD body)
+  const ready=[], skipped=[]
+  let fetchedN=0
+  for(const r of sourced){
+    if(st) st.textContent=`Loading JDs… ${ready.length+skipped.length+1}/${sourced.length}`
+    const got=await ensureRoleJd(r)
+    if(got.ok && (got.jd||'').trim().length>200){
+      if(got.fetched) fetchedN++
+      ready.push({ ...r, jd: got.jd })
+    } else {
+      skipped.push({ co:r.company||'—', title:r.title||'', why: got.reason||'no_jd' })
+    }
+  }
   let done=0, ok=0, fail=0
-  const queue=withJd.slice(0,25) // cap per click
+  const queue=ready.slice(0,25) // cap per click
   async function one(r){
     try{
       const tri=await cheapPreTriage(r, { resume, jd:r.jd })
@@ -5150,15 +5182,22 @@ $('triage_batch')?.addEventListener('click', async ()=>{
     done++
     if(st) st.textContent=`Batch ${done}/${queue.length} · ok ${ok} · fail ${fail}`
   }
-  // concurrency 2
   let i=0
   async function worker(){ while(i<queue.length){ const r=queue[i++]; await one(r) } }
-  await Promise.all([worker(), worker()])
-  logEvent('triage_batch', null, { queued: queue.length, ok, fail, sourced: sourced.length })
+  if(queue.length) await Promise.all([worker(), worker()])
+  logEvent('triage_batch', null, { queued: queue.length, ok, fail, sourced: sourced.length, skipped: skipped.length, fetched: fetchedN })
   await load()
-  if(st){ st.textContent = queue.length
-    ? `Ranked ${ok}/${queue.length} Sourced roles with JDs${withJd.length>queue.length?' (capped at 25)':''}. Suggested calls tagged — review in drawer.`
-    : (sourced.length ? 'Sourced roles need a pasted JD before batch match.' : 'No Sourced roles.')
+  if(st){
+    const skipNames=skipped.slice(0,4).map(s=>s.co).join(', ')
+    const skipBit=skipped.length
+      ? ` Skipped ${skipped.length} without a usable JD${skipNames?` (${skipNames}${skipped.length>4?',…':''})`:' — open card → paste JD'}.`
+      : ''
+    const fetchBit=fetchedN?` Loaded ${fetchedN} JD${fetchedN>1?'s':''} from posting links.` : ''
+    st.textContent = queue.length
+      ? `Ranked ${ok}/${queue.length} Sourced.${fetchBit}${fail?` ${fail} failed.`:''}${skipBit}`
+      : (sourced.length
+        ? `Couldn’t batch-match — none of the ${sourced.length} visible Sourced cards have a usable JD yet.${skipBit} Open a card and paste the posting, or try again.`
+        : 'No Sourced roles.')
     delete st.dataset.busy
   }
   b.disabled=false; b.textContent=o
