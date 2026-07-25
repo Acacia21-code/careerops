@@ -4280,9 +4280,10 @@ $('run').onclick = async ()=>{
     const filt = FIND_PREFS.hide_filtered ? ' Find filters may hide some.' : ''
     const scanned = data.boardsScanned!=null ? ` across ${data.boardsScanned} boards` : ''
     const dups = data.skippedDup ? ` · skipped ${data.skippedDup} duplicates` : ''
+    const capped = data.skippedCap ? ` · capped at ${data.addCap||40} best matches` : ''
     $('status').textContent = (data.added>0)
-      ? `Added ${data.added} new role${data.added>1?'s':''} (${data.found} live matches${scanned})${dups}.${filt}`
-      : `Scanned${scanned || ' the boards'} — ${data.found} roles matched your filters, all already on your board${dups}. Adjust keywords in Settings to widen.${filt}`
+      ? `Added ${data.added} new role${data.added>1?'s':''} (${data.found} matched your titles/keywords${scanned})${dups}${capped}.${filt}`
+      : `Scanned${scanned || ' the boards'} — ${data.found} roles matched your filters, all already on your board${dups}. Tighten titles/keywords in Settings if results are noisy.${filt}`
   }catch(err){ $('status').textContent='Search failed: '+await fnMsg(err) }
   b.disabled=false; b.textContent=old
 }
