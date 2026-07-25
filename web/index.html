@@ -119,6 +119,13 @@
     text-decoration:none;padding:10px 12px;border-radius:10px;box-shadow:var(--sh-teal);line-height:1.2;
     flex:none;white-space:nowrap}
   .cardlet a.jd:hover{filter:brightness(1.03)}
+  .cardlet .not-me{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:8px 10px;
+    border:0;background:transparent;color:var(--text-3);font:inherit;font-size:12px;font-weight:600;
+    cursor:pointer;text-align:center;border-radius:8px;line-height:1.2}
+  .cardlet .not-me:hover{background:var(--surface-2);color:#8a1f11}
+  .cardlet .not-me.restore:hover{color:var(--accent-ink)}
+  .btn.danger-ghost{border-color:#f0c0c0;color:#8a1f11;background:#fff8f8}
+  .btn.danger-ghost:hover{background:#fff0f0}
   /* follow-ups */
   .fu-bar{padding:8px 18px 0}
   .fu-label{font-size:11px;letter-spacing:.5px;color:var(--text-2);font-weight:700;display:block;margin-bottom:4px}
@@ -696,14 +703,16 @@
           <div class="verdict-pick" id="dw_verdict">
             <button type="button" class="vbtn apply" data-v="apply" title="Good fit — tag only; does not submit an application">Worth applying</button>
             <button type="button" class="vbtn stretch" data-v="stretch" title="Reach role — still worth a tailored pack">Stretch</button>
-            <button type="button" class="vbtn skip" data-v="skip" title="Low interest — stays on the board">Skip</button>
+            <button type="button" class="vbtn skip" data-v="skip" title="Low interest — stays on the board (use Not for me to hide)">Skip</button>
           </div>
           <div class="next-step" id="dw_nextstep">
             <b>Next:</b> build a resume tailored to this JD, then open the company site and apply yourself.
           </div>
           <button class="btn primary block" id="dw_tailor" style="font-size:15px;padding:14px 16px;margin-top:10px">Build resume for this job →</button>
           <p class="muted" id="dw_ctahint" style="margin:8px 0 0;font-size:12.5px;line-height:1.45;text-align:center">Check my match (optional) · tag Worth applying / Stretch / Skip · then Build resume.</p>
-          <div class="why hidden" id="dw_skipwhy" style="margin-top:10px"><b>You marked this Skip.</b> It stays on the board — nothing is deleted. You can still build a resume.</div>
+          <div class="why hidden" id="dw_skipwhy" style="margin-top:10px"><b>You marked this Skip.</b> It stays on the board — nothing is deleted. Use <b>Not for me</b> below to hide it.</div>
+          <button type="button" class="btn sm danger-ghost block" id="dw_not_for_me" style="margin-top:12px" title="Moves this role to Closed — not deleted">Not for me — hide this role</button>
+          <p class="muted" style="margin:6px 0 0;font-size:12px;line-height:1.4;text-align:center">Hides it in Closed. Drag it back anytime, or use Put back on the Closed card.</p>
         </div>
         <details class="section more-tools">
           <summary class="lbl" style="cursor:pointer">More tools — evaluate, drafts, prep</summary>
@@ -1522,6 +1531,30 @@ function setVerdict(id, v){
   const m=verdictStore(); if(v) m[id]=v; else delete m[id]
   localStorage.setItem('co_verdicts', JSON.stringify(m))
 }
+/** User says this role is not for them — move to Closed (recoverable), not hard-delete. */
+async function dismissRole(id){
+  const role=ROLESMAP[id]
+  if(!role || role.stage===CLOSED) return
+  const from=role.stage
+  const note=(role.notes?role.notes+' · ':'')+'user: not for me'
+  const { error } = await sb.from('mt_roles').update({ stage: CLOSED, notes: note }).eq('id', id)
+  if(error){ console.warn('dismissRole failed', error.message||error); return }
+  setVerdict(id, 'skip')
+  if(ROLESMAP[id]){ ROLESMAP[id].stage=CLOSED; ROLESMAP[id].notes=note }
+  logEvent('role_dismiss', id, { from, reason:'not_for_me' })
+  if(CURROLE?.id===id){ try{ rp2FlushSel() }catch(_e){}; closeDrawer() }
+  await load()
+}
+/** Put a Closed “Not for me” role back into Sourced. */
+async function restoreDismissedRole(id){
+  const role=ROLESMAP[id]
+  if(!role || role.stage!==CLOSED) return
+  const { error } = await sb.from('mt_roles').update({ stage: 'sourced' }).eq('id', id)
+  if(error){ console.warn('restoreDismissedRole failed', error.message||error); return }
+  if(ROLESMAP[id]) ROLESMAP[id].stage='sourced'
+  logEvent('role_restore', id, { to:'sourced' })
+  await load()
+}
 function sentStore(){ try{ return JSON.parse(localStorage.getItem('co_sent')||'{}')||{} }catch(_e){ return {} } }
 function isSent(id){ return !!sentStore()[id] }
 function setSent(id, on){ const m=sentStore(); if(on) m[id]=1; else delete m[id]; localStorage.setItem('co_sent', JSON.stringify(m)) }
@@ -2022,11 +2055,15 @@ async function load(){
       const stamp=fitStamp(r)
       const stampHtml = stamp ? `<span class="doc" title="Find match: ${esc(stamp)}">why</span>` : ''
       const ageHtml = stale==null ? '' : `<span class="age-pill" title="Days on board">${stale}d</span>`
+      const hideBtn = s===CLOSED
+        ? `<button type="button" class="not-me restore" data-restore="${r.id}" title="Move back to Sourced">Put back</button>`
+        : `<button type="button" class="not-me" data-not-me="${r.id}" title="Not a fit — move to Closed (not deleted)">Not for me</button>`
       return `<div class="cardlet${activeCard===r.id?' active':''}" draggable="true" data-id="${r.id}">
       <div class="co">${esc(r.company||'—')}</div>
       <div class="role">${esc(r.title||'')}</div>
       <div class="meta">${mHtml}${vHtml}${doc}${stampHtml}${flag}${ageHtml}</div>
       ${r.url?`<a class="jd" href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open JD ↗</a>`:''}
+      ${hideBtn}
     </div>`}).join('') : '<div class="muted" style="font-size:11px;padding:6px">—</div>'
     return `<div class="col" data-stage="${s}"><h3>${LABEL[s]}<span>${it.length}</span></h3>${
       s==='researched'
@@ -2036,6 +2073,12 @@ async function load(){
   }).join('')
   $('board').querySelectorAll('[data-add-role]').forEach(btn=>{
     btn.onclick=e=>{ e.stopPropagation(); $('addrolebtn')?.click() }
+  })
+  $('board').querySelectorAll('[data-not-me]').forEach(btn=>{
+    btn.onclick=e=>{ e.stopPropagation(); dismissRole(+btn.dataset.notMe) }
+  })
+  $('board').querySelectorAll('[data-restore]').forEach(btn=>{
+    btn.onclick=e=>{ e.stopPropagation(); restoreDismissedRole(+btn.dataset.restore) }
   })
   // ⏰ follow-ups: derived from Applied/Interview — due 14 days after landing there; click opens the role
   const DAY=864e5, now=Date.now()
@@ -4789,8 +4832,13 @@ function syncVerdictUI(v){
     else $('dw_ctahint').textContent='Check my match (optional) · tag Worth applying / Stretch / Skip · then Build resume.'
   }
   if($('dw_esc')) $('dw_esc').textContent = skip
-    ? 'Skip keeps it on the board — nothing is deleted. Drag the card to move stages.'
+    ? 'Skip keeps it on the board. Use Not for me to move it to Closed.'
     : 'Esc closes — JD kept. Open JD ↗ is how you apply. Tags never submit an application.'
+  if($('dw_not_for_me')){
+    const closed = CURROLE?.stage===CLOSED
+    $('dw_not_for_me').classList.toggle('hidden', !!closed)
+    $('dw_not_for_me').disabled = !!closed
+  }
   if(applyish){
     try{ $('dw_tailor')?.scrollIntoView({ behavior:'smooth', block:'nearest' }) }catch(_e){}
   }
@@ -4806,6 +4854,12 @@ function syncBuilderChrome(){
   if($('bv_sent')) $('bv_sent').textContent = isSent(CURROLE.id) ? '✓ sent' : 'not sent'
 }
 $('dw_close')?.addEventListener('click', ()=>{ rp2FlushSel(); closeDrawer() })
+$('dw_not_for_me')?.addEventListener('click', async ()=>{
+  if(!CURROLE?.id) return
+  const b=$('dw_not_for_me'); if(b){ b.disabled=true; b.textContent='Hiding…' }
+  try{ await dismissRole(CURROLE.id) }
+  finally{ if(b){ b.disabled=false; b.textContent='Not for me — hide this role' } }
+})
 $('scrim')?.addEventListener('click', ()=>{
   // Safe for JD paste: only close if JD editor is collapsed
   if(!$('rp2_jdwrap')?.classList.contains('hidden')) return
