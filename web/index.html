@@ -1628,7 +1628,10 @@ function roleFilterReason(r){
   return null
 }
 function shouldHideRole(r){
+  // Find hygiene only soft-hides Sourced noise — never hide pipeline roles
+  // (researched / applied / interview / etc.) or the board looks "empty".
   if(!FIND_PREFS.hide_filtered) return false
+  if(String(r?.stage||'') !== 'sourced') return false
   return !!roleFilterReason(r)
 }
 function normalizeGhost(g){
