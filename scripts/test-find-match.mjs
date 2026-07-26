@@ -118,6 +118,23 @@ for (const r of RIGHT_GEO) {
   if (!ok) failed++
 }
 
+// Remote · US only — bare Remote / Indonesia fail; Remote US / Chicago pass
+{
+  const cases = [
+    { loc: 'Remote', title: 'Director Travel Partnerships', expect: 'remote_not_us' },
+    { loc: 'Remote - Indonesia', title: 'Director Travel Partnerships', expect: 'wrong_geo' },
+    { loc: '', title: 'Director Travel Partnerships', expect: 'remote_not_us' },
+    { loc: 'Remote - United States', title: 'Director Travel Partnerships', expect: null },
+    { loc: 'Chicago, IL', title: 'Director Travel Partnerships', expect: null },
+  ]
+  for (const c of cases) {
+    const why = locationRejectReason(c.loc, c.title, ['Remote', 'US'], { remote_pref: 'remote_us' })
+    const ok = why === c.expect
+    console.log(ok ? 'ok   remote_us' : 'FAIL remote_us', c.loc || '(empty)', why, 'want', c.expect)
+    if (!ok) failed++
+  }
+}
+
 assert.equal(LANE_TRUE.length, 10, 'fixture must stay at 10 lane-true samples')
 if (failed) {
   console.error(`\ntest-find-match: ${failed} failure(s)`)

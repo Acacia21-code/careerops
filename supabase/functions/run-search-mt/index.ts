@@ -262,6 +262,7 @@ Deno.serve(async (req) => {
       fit_score: stamp ? `${o.score}|${stamp}` : String(o.score),
       stage: 'sourced',
       ghost_risk: 'unknown',
+      location: o.loc ? String(o.loc).slice(0, 240) : null,
       notes: locNote || null,
     })
     if (error) continue

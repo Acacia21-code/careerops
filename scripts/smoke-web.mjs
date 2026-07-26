@@ -26,6 +26,7 @@ const requiredIds = [
   'triage_batch',
   'triage_dedupe',
   'triage_close_offlane',
+  'triage_empty_closed',
   'rp2_match',
   'dw_evaluate',
   'dw_gaps',
@@ -64,6 +65,8 @@ const requiredStrings = [
   { name: 'single Build resume CTA', re: /id="dw_tailor"/ },
   { name: 'no duplicate mid Build CTA', re: /id="dw_tailor_mid"/, invert: true },
   { name: 'plain-English remove junk', re: /Remove junk from Sourced/ },
+  { name: 'Empty Closed control', re: /Empty Closed/ },
+  { name: 'Remote US only pref', re: /remote_us/ },
   { name: 'styled triage fields', re: /class="triage-field"/ },
   { name: 'next step after verdict', re: /id="dw_nextstep"/ },
   // HTML comments must not leak private stamp markers (b + east branding)

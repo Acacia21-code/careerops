@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.mt_roles (
   ghost_risk   text DEFAULT 'unknown',
   jd           text,
   notes        text,
+  location     text,
   created_at   timestamptz DEFAULT now(),
   updated_at   timestamptz DEFAULT now()
 );

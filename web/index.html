@@ -608,6 +608,7 @@
     <button type="button" class="btn sm primary" id="triage_batch">Rank Sourced (batch match)</button>
     <button type="button" class="btn sm" id="triage_dedupe">Dedupe board</button>
     <button type="button" class="btn sm" id="triage_close_offlane" title="Moves Sourced cards that don’t match your titles/keywords into Closed">Remove junk from Sourced</button>
+    <button type="button" class="btn sm" id="triage_empty_closed" title="Permanently deletes every Closed card (recoverable only from your own backups)">Empty Closed</button>
     <label class="triage-field">Sort
       <select id="triage_sort" title="Sort Sourced column">
       <option value="match_desc">Match ↓</option>
@@ -1032,6 +1033,7 @@
         <option value="any">Any location</option>
         <option value="prefer_remote">Prefer remote (flag on-site)</option>
         <option value="remote_only">Remote only (hide on-site)</option>
+        <option value="remote_us">Remote · US only (block foreign + unmarked Remote)</option>
         <option value="onsite_ok">On-site / hybrid OK</option>
       </select>
     </div>
@@ -1585,6 +1587,28 @@ async function restoreDismissedRole(id){
   await load()
   return true
 }
+/** Permanently delete every Closed card (user-confirmed). */
+async function emptyClosedRoles(){
+  const closed=Object.values(ROLESMAP||{}).filter(r=>String(r.stage||'')===CLOSED)
+  if(!closed.length){
+    if($('triage_status')) $('triage_status').textContent='Closed is already empty.'
+    return 0
+  }
+  if(!confirm(`Permanently delete ${closed.length} Closed role${closed.length>1?'s':''}? This cannot be undone.`)) return 0
+  let n=0
+  for(const r of closed){
+    const { error } = await sb.from('mt_roles').delete().eq('id', r.id)
+    if(!error){ n++; delete ROLESMAP[r.id] }
+  }
+  logEvent('empty_closed', null, { deleted: n })
+  await load()
+  if($('triage_status')){
+    $('triage_status').textContent = n
+      ? `Deleted ${n} Closed card${n>1?'s':''}.`
+      : 'Couldn’t delete Closed cards — try again.'
+  }
+  return n
+}
 function sentStore(){ try{ return JSON.parse(localStorage.getItem('co_sent')||'{}')||{} }catch(_e){ return {} } }
 function isSent(id){ return !!sentStore()[id] }
 function setSent(id, on){ const m=sentStore(); if(on) m[id]=1; else delete m[id]; localStorage.setItem('co_sent', JSON.stringify(m)) }
@@ -1657,7 +1681,7 @@ function loadFindPrefs(){
     return {
       blocklist: Array.isArray(raw.blocklist)?raw.blocklist:list(String(raw.blocklist||'')),
       max_age_days: Math.max(0, parseInt(raw.max_age_days,10)||0),
-      remote_pref: ['any','prefer_remote','remote_only','onsite_ok'].includes(raw.remote_pref)?raw.remote_pref:'any',
+      remote_pref: ['any','prefer_remote','remote_only','remote_us','onsite_ok'].includes(raw.remote_pref)?raw.remote_pref:'any',
       hide_filtered: raw.hide_filtered!==false,
       dealbreakers: Array.isArray(raw.dealbreakers)?raw.dealbreakers:list(String(raw.dealbreakers||'')),
     }
@@ -1721,14 +1745,24 @@ function findLocationPrefs(){
 }
 function roleWrongGeo(r){
   const locs=findLocationPrefs()
-  if(!locs.length) return false
+  const remoteUs=FIND_PREFS.remote_pref==='remote_us'
+  if(!locs.length && !remoteUs) return false
   const concrete=locs.filter(l=>!/^remote([\s-]*(only|ok|friendly))?$/i.test(l))
-  const usCentric=concrete.some(l=>FIND_US_GEO_RE.test(l)||/^(us|usa|u\.s\.a?\.?)$/i.test(l.trim()))
+  const usCentric=remoteUs || concrete.some(l=>FIND_US_GEO_RE.test(l)||/^(us|usa|u\.s\.a?\.?)$/i.test(l.trim()))
   if(!usCentric) return false
   const hay=locBlob(r)
   const foreign=FIND_NON_US_GEO_RE.test(hay)
   const us=FIND_US_GEO_RE.test(hay)
-  return foreign && !us
+  if(foreign && !us) return true
+  if(remoteUs){
+    const remote=/\bremote\b|work from home|\bwfh\b|distributed|anywhere/i.test(hay)
+    const locField=String(r?.location||r?.loc||'').trim()
+    // Require a US pin for Remote · US only (bare Remote / empty loc fails)
+    if(!us && !(locField && FIND_US_GEO_RE.test(locField))){
+      if(remote || !locField) return true
+    }
+  }
+  return false
 }
 
 /** Find lane helpers (mirrors supabase/functions/run-search-mt/match.mjs — keep in sync). */
@@ -1762,6 +1796,7 @@ function roleFilterReason(r){
   const age=roleAgeDays(r)
   if(FIND_PREFS.max_age_days>0 && age!=null && age>FIND_PREFS.max_age_days) return 'over_age'
   if(FIND_PREFS.remote_pref==='remote_only' && isOnsiteHeavy(r) && !isRemoteRole(r)) return 'not_remote'
+  if(FIND_PREFS.remote_pref==='remote_us' && isOnsiteHeavy(r) && !isRemoteRole(r)) return 'not_remote'
   if(String(r?.stage||'')==='sourced' && roleWrongGeo(r)) return 'wrong_geo'
   if(String(r?.stage||'')==='sourced'){
     const lane=roleOffLaneReason(r)
@@ -2106,13 +2141,15 @@ async function load(){
       const stamp=fitStamp(r)
       const stampHtml = stamp ? `<span class="doc" title="Find match: ${esc(stamp)}">why</span>` : ''
       const ageHtml = stale==null ? '' : `<span class="age-pill" title="Days on board">${stale}d</span>`
+      const locLabel = String(r.location||'').trim()
+      const locHtml = locLabel ? `<span class="age-pill" title="ATS location">${esc(locLabel.slice(0,42))}${locLabel.length>42?'…':''}</span>` : ''
       const hideBtn = s===CLOSED
         ? `<button type="button" class="not-me restore" data-restore="${r.id}" title="Move back to Sourced">Put back</button>`
         : `<button type="button" class="not-me" data-not-me="${r.id}" title="Not a fit — move to Closed (not deleted)">Not for me</button>`
       return `<div class="cardlet${activeCard===r.id?' active':''}" draggable="true" data-id="${r.id}">
       <div class="co">${esc(r.company||'—')}</div>
       <div class="role">${esc(r.title||'')}</div>
-      <div class="meta">${mHtml}${vHtml}${doc}${stampHtml}${flag}${ageHtml}</div>
+      <div class="meta">${mHtml}${vHtml}${doc}${stampHtml}${flag}${locHtml}${ageHtml}</div>
       ${r.url?`<a class="jd" href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open JD ↗</a>`:''}
       ${hideBtn}
     </div>`}).join('') : '<div class="muted" style="font-size:11px;padding:6px">—</div>'
@@ -2120,10 +2157,17 @@ async function load(){
       s==='researched'
         ? `<button type="button" class="col-add" data-add-role="1" title="You found this job — add link + JD">＋ Add role</button>`
         : ''
+    }${
+      s===CLOSED && it.length
+        ? `<button type="button" class="col-add" data-empty-closed="1" title="Permanently delete all Closed cards" style="border-color:#f0c0c0;background:#fff8f8;color:#8a1f11">Empty Closed (${it.length})</button>`
+        : ''
     }${cards}</div>`
   }).join('')
   $('board').querySelectorAll('[data-add-role]').forEach(btn=>{
     btn.onclick=e=>{ e.stopPropagation(); $('addrolebtn')?.click() }
+  })
+  $('board').querySelectorAll('[data-empty-closed]').forEach(btn=>{
+    btn.onclick=e=>{ e.stopPropagation(); emptyClosedRoles() }
   })
   $('board').querySelectorAll('[data-not-me]').forEach(btn=>{
     btn.onclick=e=>{ e.preventDefault(); e.stopPropagation(); dismissRole(btn.dataset.notMe) }
@@ -5386,6 +5430,12 @@ $('triage_close_offlane')?.addEventListener('click', async ()=>{
   }
   if(b){ b.disabled=false; b.textContent=o }
   logEvent('close_offlane', null, { closed, closedAe })
+})
+$('triage_empty_closed')?.addEventListener('click', async ()=>{
+  const b=$('triage_empty_closed'), o=b?.textContent
+  if(b){ b.disabled=true; b.textContent='Emptying…' }
+  try{ await emptyClosedRoles() }
+  finally{ if(b){ b.disabled=false; b.textContent=o||'Empty Closed' } }
 })
 
 </script>

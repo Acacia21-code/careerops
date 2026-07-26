@@ -44,7 +44,7 @@ The product doctrine is blunt and encoded in the UI:
 
 Sourced → Researched → Conversation → Applied → Interview → Offer → Rejected → Closed.
 
-- **Run job search** scans the default pack of **87** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters; [`boards.default.json`](supabase/boards.default.json)) using your titles, keywords, seniority, and locations — with server + client **dedupe** so the same role doesn’t land repeatedly.  
+- **Run job search** scans the default pack of **87** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters; [`boards.default.json`](supabase/boards.default.json)) using your titles, keywords, seniority, and locations — with **geo gating** (US-centric prefs reject foreign-pinned Remote) and server + client **dedupe** so the same role doesn’t land repeatedly.  
 - **Find hygiene** (Settings): company **blocklist**, **max posting age**, **remote preference**, and soft-hide of blocked / stale / non-matching roles.  
 - **Triage** on Sourced: batch match, dedupe, sort/filter by verdict — tags scores only; never applies.  
 - **Add role**: paste **link + job description** when a scrape is incomplete.  

@@ -109,11 +109,13 @@ function prefsWantRemote(locations, prefs) {
   return (
     locations.some((l) => /remote/i.test(l)) ||
     prefs.remote_pref === 'remote_only' ||
-    prefs.remote_pref === 'prefer_remote'
+    prefs.remote_pref === 'prefer_remote' ||
+    prefs.remote_pref === 'remote_us'
   )
 }
 
-function prefsAreUsCentric(locations) {
+function prefsAreUsCentric(locations, prefs = {}) {
+  if (prefs.remote_pref === 'remote_us') return true
   const concrete = locations.filter((l) => !isRemoteOnlyTerm(l))
   if (!concrete.length) return false
   return concrete.some((l) => US_GEO_RE.test(l) || /^(us|usa|u\.s\.a?\.?)$/i.test(l.trim()))
@@ -145,12 +147,14 @@ export function buildLocPreferenceRe(locations) {
  */
 export function locationRejectReason(loc, title, locations, prefs = {}) {
   const locs = listTerms(locations)
-  if (!locs.length) return null
+  const remoteUs = prefs.remote_pref === 'remote_us'
+  // remote_us implies a US market even when Locations only say "Remote"
+  if (!locs.length && !remoteUs) return null
 
   const locStr = String(loc || '')
   const hay = `${locStr} ${title || ''}`
   const wantRemote = prefsWantRemote(locs, prefs)
-  const remoteOnly = prefs.remote_pref === 'remote_only'
+  const remoteOnly = prefs.remote_pref === 'remote_only' || remoteUs
   const looksRemote =
     /remote|anywhere|distributed|work from home|\bwfh\b/i.test(hay) || /remote/i.test(String(title || ''))
   const looksOnsite = /\bon[\s-]?site\b|\bin[\s-]?office\b/i.test(hay) && !looksRemote
@@ -158,12 +162,22 @@ export function locationRejectReason(loc, title, locations, prefs = {}) {
 
   const locRe = buildLocPreferenceRe(locs)
   const prefHit = !!(locRe && locRe.test(hay))
-  const usCentric = prefsAreUsCentric(locs)
+  const usCentric = prefsAreUsCentric(locs, prefs)
   const foreignPin = NON_US_GEO_RE.test(hay)
   const usPin = US_GEO_RE.test(hay)
 
   // Pinned foreign market vs US prefs — even if posting says Remote
   if (usCentric && foreignPin && !usPin && !prefHit) return 'wrong_geo'
+
+  // Remote · US only: bare "Remote" / empty loc without a US pin is not enough
+  if (remoteUs) {
+    if (usPin || prefHit) return null
+    if (looksRemote && !foreignPin && !locStr.trim()) return 'remote_not_us'
+    if (looksRemote && !usPin) return 'remote_not_us'
+    if (locStr.trim() && !usPin && !prefHit) return 'wrong_geo'
+    if (!locStr.trim()) return 'remote_not_us'
+    return null
+  }
 
   // Concrete city/country prefs: unmarked remote OK; remote+other-country already caught
   if (locRe) {
