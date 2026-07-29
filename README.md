@@ -1,16 +1,16 @@
 # CareerOps
 
-Replace your resume builder, job tracker, interview notes, accomplishment journal, and offer spreadsheet with one local-first application.
+Store every accomplishment. Tailor every application. Own your career data.
 
-For engineers, PMs, designers, and anyone else who wants a durable record of their work—not another document generator.
+[**Try the demo**](https://careerops.telivity.app) · [**Quick start**](#quick-start)
 
-[Live Demo](https://careerops.telivity.app) · [Quick Start](#quick-start)
+Local-first · Open source · User-authored evidence only · Apache 2.0
 
 ![Memory → Promote → Resume → Interview](docs/assets/memory-promote.gif)
 
 *Memory → Promote → Resume → Interview*
 
-Apache 2.0 · Local-first · Self-host · AI-assisted · No subscriptions
+One local-first app that replaces your resume builder, job tracker, interview notes, accomplishment journal, and offer spreadsheet—for engineers, PMs, designers, and anyone who wants a durable record of their work.
 
 ---
 
@@ -61,19 +61,32 @@ Capture while you work. Promote into structured history. Tailor for a real JD. P
 
 ---
 
+## Why people switch
+
+**“I forgot what I shipped six months ago.”**  
+CareerOps had already saved it—so the next resume and interview prep started from real work, not a blank page.
+
+**“I had seven resume versions in Google Drive.”**  
+CareerOps generated them from one source of truth instead of another copy-paste doc.
+
+**“I was paying for three different job search tools.”**  
+CareerOps replaced the tracker, the resume tool, and the notes dump with one local-first application.
+
+---
+
 ## Why use CareerOps instead of Teal, Huntr, Simplify, or AI resume builders?
 
 | | CareerOps | Typical alternatives |
 |--|-----------|----------------------|
-| Data model | Local-first; you own your data | Cloud SaaS |
-| License | Open source (Apache 2.0) | Proprietary |
-| Evidence | User-authored accomplishments only; AI rewrites, never invents | AI-generated claims common |
-| Persistence | Accomplishment history you keep between searches | One-off document generation |
-| Scope | Memory, board, resumes, interviews, offers, portfolio in one app | Multiple disconnected tools |
+| Data | Local-first; you own it | Cloud SaaS |
+| License | Apache 2.0 open source | Proprietary |
+| Evidence | User-authored only; AI rewrites, never invents | AI-generated claims common |
+| Between searches | Accomplishment history you keep | One-off document generation |
+| Scope | Memory, board, resumes, interviews, offers, portfolio | Multiple disconnected tools |
 
 You apply on the employer site. CareerOps does **not** auto-apply.
 
-That’s why we call it a Career Operating System. CareerOps is the system you keep between job searches so your next search starts with years of organized evidence instead of a blank page.
+After the workflow above, that’s the Career Operating System idea: the system you keep between searches so the next one starts with organized evidence—not a blank page.
 
 ---
 
@@ -86,19 +99,6 @@ npx @telivity/careerops init
 ≈5 minutes. Done.
 
 Self-host, schema, deploy, and agent skill details: [docs/](docs/) · [CONTRIBUTING.md](CONTRIBUTING.md) · [web/README.md](web/README.md)
-
----
-
-## Why people switch
-
-**“I forgot what I shipped six months ago.”**  
-CareerOps had already saved it.
-
-**“I had seven resume versions in Google Drive.”**  
-CareerOps generated them from one source of truth.
-
-**“I was paying for three different job search tools.”**  
-CareerOps replaced them with one local-first application.
 
 ---
 
