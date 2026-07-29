@@ -22,7 +22,9 @@ BEGIN
   END IF;
 END $$;
 
-CREATE OR REPLACE VIEW public.mt_profiles
+-- CREATE OR REPLACE cannot rename/reorder view columns when app.profiles gains fields.
+DROP VIEW IF EXISTS public.mt_profiles;
+CREATE VIEW public.mt_profiles
 WITH (security_invoker=true) AS
 SELECT * FROM app.profiles;
 
@@ -114,6 +116,14 @@ DO $$ BEGIN
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
+-- Prod app.* tables may predate updated_at; triggers require the column.
+ALTER TABLE app.profiles
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE app.roles
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE app.portfolio_items
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 CREATE OR REPLACE FUNCTION app.touch_updated_at()
 RETURNS trigger

@@ -89,8 +89,10 @@ BEGIN
     RAISE EXCEPTION 'credential vault: no safe columns found on app.profiles';
   END IF;
 
+  -- Drop first: REPLACE cannot change column set when stripping secret cols.
+  EXECUTE 'DROP VIEW IF EXISTS public.mt_profiles';
   EXECUTE format(
-    'CREATE OR REPLACE VIEW public.mt_profiles WITH (security_invoker=true) AS SELECT %s FROM app.profiles',
+    'CREATE VIEW public.mt_profiles WITH (security_invoker=true) AS SELECT %s FROM app.profiles',
     cols
   );
   GRANT SELECT, INSERT, UPDATE, DELETE ON public.mt_profiles TO authenticated, anon;
