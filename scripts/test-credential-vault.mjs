@@ -84,8 +84,25 @@ assert.match(stateUi, /writeProviderSecret/)
 assert.doesNotMatch(stateUi, /upd\.ai_key\s*=/)
 
 // --- docs ---
-assert.match(readme, /CREDENTIALS_KEK/)
-assert.match(readme, /plaintext/i)
+// The root README is a landing page: the vault contract lives in the docs it links to,
+// not in README prose. Pin the reachable path (README -> security/privacy doc -> KEK
+// contract) so a rewrite can drop marketing copy but cannot orphan the security model.
+const readmeTargets = [...readme.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)]
+  .map(m => m[1].replace(/`/g, '').split('#')[0].trim())
+  .filter(target => target && !/^(https?:|mailto:)/i.test(target))
+for (const target of readmeTargets) {
+  assert.ok(fs.existsSync(path.join(root, target)), `README links to missing path: ${target}`)
+}
+const readmeImages = [...readme.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map(m => m[1])
+assert.ok(readmeImages.length > 0, 'README must embed at least one product screenshot/GIF')
+
+const VAULT_DOCS = ['SECURITY.md', 'supabase/README.md', 'docs/PRIVACY.md']
+const linkedVaultDocs = VAULT_DOCS.filter(doc => readmeTargets.includes(doc))
+assert.ok(linkedVaultDocs.length > 0, `README must link to one of: ${VAULT_DOCS.join(', ')}`)
+const linkedVaultText = linkedVaultDocs.map(read).join('\n')
+assert.match(linkedVaultText, /CREDENTIALS_KEK/)
+assert.match(linkedVaultText, /plaintext/i)
+
 assert.match(sbReadme, /CREDENTIALS_KEK/)
 assert.match(sbReadme, /humanizer_pw/)
 assert.match(sbReadme, /encrypt-in-place|lazily migrate/i)
