@@ -1,10 +1,11 @@
 -- Production (app schema) Phase 2.2: interview events.
 -- Live project uses app.* tables + public.mt_* views.
 
+-- NOTE: production app.roles.id is bigint (not uuid). Keep role_id aligned.
 CREATE TABLE IF NOT EXISTS app.interview_events (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
-  role_id           uuid NOT NULL REFERENCES app.roles(id) ON DELETE CASCADE,
+  role_id           bigint NOT NULL REFERENCES app.roles(id) ON DELETE CASCADE,
   round             int NOT NULL DEFAULT 1,
   scheduled_at      timestamptz,
   type              text NOT NULL DEFAULT 'screen',

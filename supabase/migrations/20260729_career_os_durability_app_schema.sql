@@ -69,10 +69,11 @@ CREATE INDEX IF NOT EXISTS idx_app_reports_owner_sent
 -- ---------------------------------------------------------------------------
 -- Outcomes
 -- ---------------------------------------------------------------------------
+-- NOTE: production app.roles.id is bigint (not uuid). Keep role_id aligned.
 CREATE TABLE IF NOT EXISTS app.outcomes (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner         uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
-  role_id       uuid NOT NULL REFERENCES app.roles(id) ON DELETE CASCADE,
+  role_id       bigint NOT NULL REFERENCES app.roles(id) ON DELETE CASCADE,
   kind          text NOT NULL,
   outcome_date  date,
   note          text DEFAULT '',

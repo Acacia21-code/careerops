@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS app.contacts (
   name           text NOT NULL,
   channel        text NOT NULL DEFAULT 'email',
   company        text DEFAULT '',
-  role_ids       uuid[] NOT NULL DEFAULT '{}',
+  -- NOTE: production app.roles.id is bigint (not uuid).
+  role_ids       bigint[] NOT NULL DEFAULT '{}',
   last_touch_at  timestamptz,
   notes          text DEFAULT '',
   created_at     timestamptz NOT NULL DEFAULT now(),
