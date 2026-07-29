@@ -11,11 +11,14 @@ npx @telivity/careerops init
 - `.agents/skills/careerops/` with modes: scan, evaluate, rank, tailor, interview, followup, outcome, advise
 - Symlinks for Claude Code / Codex / OpenCode skill folders
 - Copy of `web/config.example.js` → `web/config.js` when missing
+- `run-chain` — human-gated mode pipelines over a board pack (`lib/mode-chains.mjs`)
+- Example plugin manifest under `plugins/example-careerops-hooks/` (hooks registry, not a browser extension)
 
 ## Doctrine
 
 - Never invent experience
 - No auto-apply — you submit on the employer site
+- No auto-send; chain steps require `--confirm` between modes
 - Bullet memory provenance + `resume_struct` canonical sync (see repo `docs/DOCTRINE_MEMORY.md`)
 - Advisor: materials-only past; market judgment labeled
 

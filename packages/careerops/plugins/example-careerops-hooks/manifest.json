@@ -1,0 +1,38 @@
+{
+  "format": "careerops-plugin-manifest",
+  "schema_version": 1,
+  "id": "example-careerops-hooks",
+  "name": "Example CareerOps hooks",
+  "version": "1.0.0",
+  "description": "Demo board_source + custom report_kind + additive pack field. No auto-apply / no auto-send.",
+  "doctrine": {
+    "no_auto_apply": true,
+    "no_auto_send": true,
+    "no_invented_facts": true
+  },
+  "extensions": [
+    {
+      "type": "board_source",
+      "id": "example-extra-boards",
+      "summary": "Adds a few demo Greenhouse/Ashby slugs to ats_boards merges",
+      "boards": {
+        "greenhouse": ["example-corp"],
+        "ashby": ["example-startup"]
+      }
+    },
+    {
+      "type": "report_kind",
+      "id": "example-decision-memo",
+      "kind": "decision_memo",
+      "summary": "Custom mt_reports kind for a short decision memo (materials-only)",
+      "handler": "renderDecisionMemo"
+    },
+    {
+      "type": "board_pack_schema",
+      "id": "example-pack-note",
+      "summary": "Adds extensions.fields.example_note on pack export",
+      "pack_fields": ["example_note"],
+      "handler": "ensureExampleNote"
+    }
+  ]
+}

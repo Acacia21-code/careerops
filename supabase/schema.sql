@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS public.mt_profiles (
   resume_struct_rev int DEFAULT 0,
   structured_modified_at timestamptz,
   resume_reconcile_needed boolean DEFAULT false,
+  story_bank      text DEFAULT '',
+  target_band_min numeric,
+  target_band_max numeric,
+  target_band_currency text DEFAULT 'USD',
   created_at      timestamptz DEFAULT now(),
   updated_at      timestamptz DEFAULT now()
 );
@@ -54,6 +58,9 @@ CREATE TABLE IF NOT EXISTS public.mt_roles (
   jd           text,
   notes        text,
   location     text,
+  sent_at      timestamptz,
+  comp_range   jsonb,
+  comp_raw     text,
   created_at   timestamptz DEFAULT now(),
   updated_at   timestamptz DEFAULT now()
 );
@@ -72,10 +79,84 @@ CREATE TABLE IF NOT EXISTS public.mt_reports (
   missing_keywords  jsonb,
   rewritten         text,
   jd_text           text,
+  display_name      text,
+  sent_at           timestamptz,
   created_at        timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_mt_reports_role ON public.mt_reports(role_id, kind, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mt_reports_owner_sent
+  ON public.mt_reports(owner, sent_at)
+  WHERE sent_at IS NOT NULL;
+
+-- Outcomes (offer / reject / withdraw / ghost) — user-provided only
+CREATE TABLE IF NOT EXISTS public.mt_outcomes (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner         uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  role_id       uuid NOT NULL REFERENCES public.mt_roles(id) ON DELETE CASCADE,
+  kind          text NOT NULL,
+  outcome_date  date,
+  note          text DEFAULT '',
+  base_amount   numeric,
+  bonus_amount  numeric,
+  equity_notes  text DEFAULT '',
+  remote        text DEFAULT '',
+  offer_deadline date,
+  currency      text DEFAULT 'USD',
+  recorded_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mt_outcomes_kind_chk CHECK (
+    kind IN ('offer', 'reject', 'withdraw', 'ghost')
+  ),
+  CONSTRAINT mt_outcomes_owner_role_uq UNIQUE (owner, role_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mt_outcomes_owner ON public.mt_outcomes(owner, updated_at DESC);
+
+-- Interview rounds (user-scheduled; prep drafts live in mt_reports.kind='interview')
+CREATE TABLE IF NOT EXISTS public.mt_interview_events (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner             uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  role_id           uuid NOT NULL REFERENCES public.mt_roles(id) ON DELETE CASCADE,
+  round             int NOT NULL DEFAULT 1,
+  scheduled_at      timestamptz,
+  type              text NOT NULL DEFAULT 'screen',
+  notes             text DEFAULT '',
+  interviewer_name  text,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mt_interview_events_round_chk CHECK (round >= 1),
+  CONSTRAINT mt_interview_events_type_chk CHECK (
+    type IN ('screen', 'phone', 'onsite', 'loop', 'panel', 'other')
+  )
+);
+CREATE INDEX IF NOT EXISTS idx_mt_interview_events_owner
+  ON public.mt_interview_events(owner, scheduled_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_mt_interview_events_role
+  ON public.mt_interview_events(role_id, round, scheduled_at);
+
+-- Recruiter / network CRM (draft + log only — never auto-send)
+CREATE TABLE IF NOT EXISTS public.mt_contacts (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner          uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  name           text NOT NULL,
+  channel        text NOT NULL DEFAULT 'email',
+  company        text DEFAULT '',
+  role_ids       uuid[] NOT NULL DEFAULT '{}',
+  last_touch_at  timestamptz,
+  notes          text DEFAULT '',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mt_contacts_channel_chk CHECK (
+    channel IN ('email', 'linkedin', 'phone', 'other')
+  ),
+  CONSTRAINT mt_contacts_name_chk CHECK (char_length(trim(name)) > 0)
+);
+CREATE INDEX IF NOT EXISTS idx_mt_contacts_owner
+  ON public.mt_contacts(owner, last_touch_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_mt_contacts_company
+  ON public.mt_contacts(owner, lower(company));
+CREATE INDEX IF NOT EXISTS idx_mt_contacts_role_ids
+  ON public.mt_contacts USING GIN (role_ids);
 
 -- Bullet memory (provenance-first accomplishments)
 CREATE TABLE IF NOT EXISTS public.mt_accomplishments (
@@ -170,6 +251,9 @@ ALTER TABLE public.mt_usage    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_config   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mt_accomplishments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mt_portfolio_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mt_outcomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mt_interview_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mt_contacts ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: owner-only
 DROP POLICY IF EXISTS mt_profiles_own ON public.mt_profiles;
@@ -203,6 +287,35 @@ CREATE POLICY mt_accomplishments_own ON public.mt_accomplishments
 
 DROP POLICY IF EXISTS mt_portfolio_own ON public.mt_portfolio_items;
 CREATE POLICY mt_portfolio_own ON public.mt_portfolio_items
+  FOR ALL TO authenticated
+  USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
+
+DROP POLICY IF EXISTS mt_outcomes_own ON public.mt_outcomes;
+CREATE POLICY mt_outcomes_own ON public.mt_outcomes
+  FOR ALL TO authenticated
+  USING (owner = auth.uid())
+  WITH CHECK (
+    owner = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.mt_roles r
+      WHERE r.id = role_id AND r.owner = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS mt_interview_events_own ON public.mt_interview_events;
+CREATE POLICY mt_interview_events_own ON public.mt_interview_events
+  FOR ALL TO authenticated
+  USING (owner = auth.uid())
+  WITH CHECK (
+    owner = auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.mt_roles r
+      WHERE r.id = role_id AND r.owner = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS mt_contacts_own ON public.mt_contacts;
+CREATE POLICY mt_contacts_own ON public.mt_contacts
   FOR ALL TO authenticated
   USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
 

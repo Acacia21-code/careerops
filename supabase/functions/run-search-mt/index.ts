@@ -11,7 +11,24 @@ const CONCURRENCY = 16
 /** Hard cap — never dump hundreds of weak matches onto the board in one run. */
 const ADD_CAP = 40
 
-type Hit = { co: string; title: string; loc: string; url: string; source: string; score: number; stamp?: string }
+type CompRange = {
+  min: number | null
+  max: number | null
+  currency: string
+  interval: string
+  label: string
+}
+type Hit = {
+  co: string
+  title: string
+  loc: string
+  url: string
+  source: string
+  score: number
+  stamp?: string
+  comp_range?: CompRange | null
+  comp_raw?: string | null
+}
 type WorkdayBoard = { t: string; host: string; site: string }
 type Boards = {
   greenhouse?: string[]
@@ -80,6 +97,53 @@ async function gh(slug: string, scoreOf: ScoreOf, out: Hit[]) {
   } catch (_) { diag['gh:' + slug] = -1 }
 }
 
+/** Persist Ashby posted compensation (already fetched via includeCompensation=true). Never invent. */
+function ashbyCompFields(comp: unknown): { comp_range: CompRange | null; comp_raw: string | null } {
+  if (!comp || typeof comp !== 'object') return { comp_range: null, comp_raw: null }
+  const c = comp as Record<string, unknown>
+  const label =
+    String(c.scrapeableCompensationSalarySummary || '').trim()
+    || String(c.compensationTierSummary || '').trim()
+    || ''
+  let min: number | null = null
+  let max: number | null = null
+  let currency = 'USD'
+  let interval = 'year'
+  const absorb = (components: unknown) => {
+    if (!Array.isArray(components)) return
+    for (const raw of components) {
+      if (!raw || typeof raw !== 'object') continue
+      const x = raw as Record<string, unknown>
+      const type = String(x.compensationType || x.type || '').toLowerCase()
+      if (type && type !== 'salary') continue
+      const lo = typeof x.minValue === 'number' ? x.minValue : (typeof x.min === 'number' ? x.min : null)
+      const hi = typeof x.maxValue === 'number' ? x.maxValue : (typeof x.max === 'number' ? x.max : null)
+      if (lo != null) min = min == null ? lo : Math.min(min, lo)
+      if (hi != null) max = max == null ? hi : Math.max(max, hi)
+      if (x.currencyCode) currency = String(x.currencyCode).trim() || currency
+      const iv = String(x.interval || x.Interval || '').toUpperCase()
+      if (iv.includes('YEAR')) interval = 'year'
+      else if (iv.includes('MONTH')) interval = 'month'
+      else if (iv.includes('HOUR')) interval = 'hour'
+    }
+  }
+  absorb(c.summaryComponents)
+  if (min == null && max == null && Array.isArray(c.compensationTiers)) {
+    for (const tier of c.compensationTiers as Record<string, unknown>[]) {
+      absorb(tier?.components)
+    }
+  }
+  if (min == null && max == null && !label) return { comp_range: null, comp_raw: null }
+  const range: CompRange = {
+    min,
+    max,
+    currency,
+    interval,
+    label: label || (min != null && max != null ? `${currency} ${min}–${max}` : label),
+  }
+  return { comp_range: range, comp_raw: range.label || null }
+}
+
 async function ashby(org: string, scoreOf: ScoreOf, out: Hit[]) {
   try {
     const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${org}?includeCompensation=true`)
@@ -91,7 +155,17 @@ async function ashby(org: string, scoreOf: ScoreOf, out: Hit[]) {
       const loc = x.location || ''
       const score = scoreOf(title, loc, org)
       if (score > 0) {
-        out.push({ co: org, title, loc, url: x.jobUrl || x.applyUrl, source: 'ashby', score })
+        const { comp_range, comp_raw } = ashbyCompFields(x.compensation)
+        out.push({
+          co: org,
+          title,
+          loc,
+          url: x.jobUrl || x.applyUrl,
+          source: 'ashby',
+          score,
+          comp_range,
+          comp_raw,
+        })
         n++
       }
     }
@@ -253,7 +327,7 @@ Deno.serve(async (req) => {
     // Stamp lives in fit_score suffix (sterile, no extra columns required)
     const stamp = matchStamp(o.title, prof || {})
     const locNote = o.loc ? `loc: ${String(o.loc).slice(0, 120)}` : ''
-    const { error } = await sb.from('mt_roles').insert({
+    const row: Record<string, unknown> = {
       company: coName,
       title: o.title,
       level,
@@ -264,7 +338,15 @@ Deno.serve(async (req) => {
       ghost_risk: 'unknown',
       location: o.loc ? String(o.loc).slice(0, 240) : null,
       notes: locNote || null,
-    })
+    }
+    if (o.comp_range) row.comp_range = o.comp_range
+    if (o.comp_raw) row.comp_raw = o.comp_raw
+    let { error } = await sb.from('mt_roles').insert(row)
+    if (error && /comp_range|comp_raw|column/i.test(error.message || '')) {
+      delete row.comp_range
+      delete row.comp_raw
+      ;({ error } = await sb.from('mt_roles').insert(row))
+    }
     if (error) continue
     knownFp.add(fp(coName + ' ' + o.title))
     knownUrls.add(o.url)

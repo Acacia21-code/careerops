@@ -5,15 +5,10 @@
  * v2 — accomplishments + portfolio + doctrine flags
  * v3 — durable Sent / version display names on materials + role sent_at
  * v4 — interview events + interview prep reports; structured offer fields on outcomes
- * v5 — contacts CRM; role comp_range/comp_raw; profile target band
  */
 
-import { serializeContact, normalizeContact } from './contacts-crm.mjs'
-import { normalizeCompRange } from './ats-comp.mjs'
-import { normalizeTargetBand } from './salary-compare.mjs'
-
 export const BOARD_PACK_FORMAT = 'careerops-board-pack'
-export const BOARD_PACK_SCHEMA_VERSION = 5
+export const BOARD_PACK_SCHEMA_VERSION = 4
 
 /** Report kinds always included in pack.reports (plugins may add more via reportKinds). */
 export const BOARD_PACK_REPORT_KINDS = Object.freeze([
@@ -39,7 +34,6 @@ export function buildBoardPack({
   find_prefs = null,
   outcomes = {},
   interview_events = [],
-  contacts = [],
   extensions = null,
   reportKinds = null,
   exported_at = new Date().toISOString(),
@@ -63,7 +57,21 @@ export function buildBoardPack({
     profile: p,
     stories,
     find_prefs,
-    roles: (roles || []).map(serializeRole),
+    roles: (roles || []).map(r => ({
+      id: r.id,
+      company: r.company,
+      title: r.title,
+      stage: r.stage,
+      url: r.url,
+      jd: r.jd,
+      match_score: r.match_score,
+      fit_score: r.fit_score,
+      ghost_risk: r.ghost_risk,
+      created_at: r.created_at,
+      level: r.level,
+      location: r.location,
+      sent_at: r.sent_at || null,
+    })),
     materials: (reports || [])
       .filter(x => x.kind === 'resume' || x.kind === 'cover' || x.kind === 'jobscan')
       .map(x => ({
@@ -92,33 +100,11 @@ export function buildBoardPack({
     portfolio: (portfolio || []).map(serializePortfolio),
     outcomes: outcomes || {},
     interview_events: (interview_events || []).map(serializeInterviewEvent).filter(Boolean),
-    contacts: (contacts || []).map(serializeContact).filter(Boolean),
   }
   if (extensions && typeof extensions === 'object') {
     pack.extensions = sanitizeExtensions(extensions)
   }
   return pack
-}
-
-function serializeRole(r) {
-  const range = normalizeCompRange(r.comp_range)
-  return {
-    id: r.id,
-    company: r.company,
-    title: r.title,
-    stage: r.stage,
-    url: r.url,
-    jd: r.jd,
-    match_score: r.match_score,
-    fit_score: r.fit_score,
-    ghost_risk: r.ghost_risk,
-    created_at: r.created_at,
-    level: r.level,
-    location: r.location,
-    sent_at: r.sent_at || null,
-    comp_range: range,
-    comp_raw: r.comp_raw || (range?.label || null),
-  }
 }
 
 function sanitizeExtensions(ext) {
@@ -218,7 +204,6 @@ export function migrateBoardPack(pack) {
     if (cur.schema_version === 1) cur = migrateV1toV2(cur)
     else if (cur.schema_version === 2) cur = migrateV2toV3(cur)
     else if (cur.schema_version === 3) cur = migrateV3toV4(cur)
-    else if (cur.schema_version === 4) cur = migrateV4toV5(cur)
     else throw new Error(`Unknown board pack schema_version ${cur.schema_version}`)
   }
   return cur
@@ -311,55 +296,15 @@ function migrateV3toV4(pack) {
   }
 }
 
-function migrateV4toV5(pack) {
-  const band = normalizeTargetBand(pack.profile || {})
-  const profile = pack.profile
-    ? {
-        ...pack.profile,
-        target_band_min: pack.profile.target_band_min != null ? pack.profile.target_band_min : band.min,
-        target_band_max: pack.profile.target_band_max != null ? pack.profile.target_band_max : band.max,
-        target_band_currency: pack.profile.target_band_currency || band.currency || 'USD',
-      }
-    : pack.profile
-  return {
-    ...pack,
-    schema_version: 5,
-    format: `${BOARD_PACK_FORMAT}/v5`,
-    doctrine: {
-      ...(pack.doctrine || {}),
-      no_auto_apply: true,
-      no_invented_facts: true,
-      resume_struct_canonical: true,
-      memory_provenance: true,
-      no_auto_send: true,
-    },
-    profile,
-    roles: (pack.roles || []).map(r => ({
-      ...r,
-      comp_range: normalizeCompRange(r.comp_range),
-      comp_raw: r.comp_raw || null,
-    })),
-    contacts: Array.isArray(pack.contacts)
-      ? pack.contacts.map(normalizeContact).filter(Boolean)
-      : [],
-  }
-}
-
 /**
  * Round-trip: export then import should preserve stable ids + provenance fields.
- * Keys are never present on imported profile.
  */
 export function importBoardPack(raw) {
   const pack = migrateBoardPack(typeof raw === 'string' ? JSON.parse(raw) : raw)
-  const profile = pack.profile ? sanitizeProfile(pack.profile) : null
   return {
     schema_version: pack.schema_version,
-    profile,
-    roles: (pack.roles || []).map(r => ({
-      ...r,
-      comp_range: normalizeCompRange(r.comp_range),
-      comp_raw: r.comp_raw || null,
-    })),
+    profile: pack.profile,
+    roles: pack.roles || [],
     reports: pack.reports || [],
     materials: pack.materials || [],
     accomplishments: (pack.accomplishments || []).map(normalizeImportedAccomplishment),
@@ -368,153 +313,10 @@ export function importBoardPack(raw) {
     find_prefs: pack.find_prefs || null,
     outcomes: pack.outcomes || {},
     interview_events: (pack.interview_events || []).filter(Boolean),
-    contacts: (pack.contacts || []).map(normalizeContact).filter(Boolean),
     doctrine: pack.doctrine || {},
     extensions: pack.extensions && typeof pack.extensions === 'object'
       ? sanitizeExtensions(pack.extensions)
       : { plugins: [], fields: {}, chain_runs: [] },
-  }
-}
-
-/**
- * Plan DB upserts from an imported pack.
- * Keys never imported. Existing rows matched by stable id → update; else insert.
- */
-export function planBoardPackUpsert(imported, {
-  existingRoleIds = [],
-  existingReportIds = [],
-  existingAccomplishmentIds = [],
-  existingPortfolioIds = [],
-  existingContactIds = [],
-} = {}) {
-  const roleSet = new Set((existingRoleIds || []).map(String))
-  const reportSet = new Set((existingReportIds || []).map(String))
-  const accSet = new Set((existingAccomplishmentIds || []).map(String))
-  const pfSet = new Set((existingPortfolioIds || []).map(String))
-  const contactSet = new Set((existingContactIds || []).map(String))
-
-  const roles = { upsert: [], insert: [] }
-  for (const r of imported.roles || []) {
-    if (!r || !r.company || !r.title) continue
-    const row = {
-      id: r.id || undefined,
-      company: r.company,
-      title: r.title,
-      stage: r.stage || 'sourced',
-      url: r.url || null,
-      jd: r.jd || null,
-      match_score: r.match_score || null,
-      fit_score: r.fit_score || null,
-      ghost_risk: r.ghost_risk || 'unknown',
-      level: r.level || null,
-      location: r.location || null,
-      sent_at: r.sent_at || null,
-      comp_range: normalizeCompRange(r.comp_range),
-      comp_raw: r.comp_raw || null,
-    }
-    if (r.id && roleSet.has(String(r.id))) roles.upsert.push(row)
-    else {
-      const { id: _drop, ...ins } = row
-      if (r.id && !String(r.id).startsWith('local-')) ins.id = r.id
-      roles.insert.push(ins)
-    }
-  }
-
-  const materials = { upsert: [], insert: [] }
-  const matSrc = [
-    ...(imported.materials || []),
-    ...(imported.reports || []).filter(x =>
-      x && (
-        x.kind === 'resume' || x.kind === 'cover' || x.kind === 'jobscan'
-        || x.kind === 'match' || x.kind === 'evaluate' || x.kind === 'interview'
-        || x.kind === 'advisor' || x.kind === 'rank'
-      )
-    ),
-  ]
-  const seenMat = new Set()
-  for (const m of matSrc) {
-    if (!m || !m.kind) continue
-    const key = m.id ? String(m.id) : `${m.role_id}:${m.kind}:${m.created_at}`
-    if (seenMat.has(key)) continue
-    seenMat.add(key)
-    const row = {
-      id: m.id || undefined,
-      role_id: m.role_id || null,
-      kind: m.kind,
-      match_score: m.match_score != null ? m.match_score : null,
-      missing_keywords: m.missing_keywords || null,
-      rewritten: m.rewritten || null,
-      display_name: m.display_name || null,
-      sent_at: m.sent_at || null,
-      created_at: m.created_at || undefined,
-    }
-    if (m.id && reportSet.has(String(m.id))) materials.upsert.push(row)
-    else {
-      const { id: _d, ...ins } = row
-      if (m.id && !String(m.id).startsWith('local-')) ins.id = m.id
-      materials.insert.push(ins)
-    }
-  }
-
-  const accomplishments = { upsert: [], insert: [] }
-  for (const a of imported.accomplishments || []) {
-    if (!a || !a.body_original) continue
-    const row = { ...a }
-    delete row.polish_candidate
-    delete row.polish_model
-    delete row.polish_at
-    if (a.id && accSet.has(String(a.id))) accomplishments.upsert.push(row)
-    else {
-      const { id: _d, ...ins } = row
-      if (a.id && !String(a.id).startsWith('local-')) ins.id = a.id
-      accomplishments.insert.push(ins)
-    }
-  }
-
-  const portfolio = { upsert: [], insert: [] }
-  for (const p of imported.portfolio || []) {
-    if (!p || !p.title) continue
-    const row = { ...p }
-    delete row.polish_candidate
-    delete row.polish_model
-    delete row.polish_at
-    if (p.id && pfSet.has(String(p.id))) portfolio.upsert.push(row)
-    else {
-      const { id: _d, ...ins } = row
-      if (p.id && !String(p.id).startsWith('local-')) ins.id = p.id
-      portfolio.insert.push(ins)
-    }
-  }
-
-  const contacts = { upsert: [], insert: [] }
-  for (const c of imported.contacts || []) {
-    const n = normalizeContact(c)
-    if (!n) continue
-    if (n.id && contactSet.has(String(n.id))) contacts.upsert.push(n)
-    else {
-      const { id: _d, ...ins } = n
-      if (n.id && !String(n.id).startsWith('local-')) ins.id = n.id
-      contacts.insert.push(ins)
-    }
-  }
-
-  let profilePatch = null
-  if (imported.profile) {
-    profilePatch = sanitizeProfile(imported.profile)
-  }
-
-  return {
-    roles,
-    materials,
-    accomplishments,
-    portfolio,
-    contacts,
-    profilePatch,
-    stories: imported.stories || '',
-    outcomes: imported.outcomes || {},
-    interview_events: imported.interview_events || [],
-    find_prefs: imported.find_prefs || null,
-    secrets_imported: false,
   }
 }
 
@@ -566,7 +368,6 @@ function summarizeRevisions(revisions) {
 }
 
 function sanitizeProfile(p) {
-  const band = normalizeTargetBand(p)
   const out = {
     full_name: p.full_name,
     email: p.email,
@@ -584,17 +385,12 @@ function sanitizeProfile(p) {
     cadence_anchor: p.cadence_anchor || null,
     last_entry_at: p.last_entry_at || null,
     story_bank: p.story_bank != null ? p.story_bank : undefined,
-    target_band_min: band.min,
-    target_band_max: band.max,
-    target_band_currency: band.currency || 'USD',
   }
-  // strip secrets if caller passed full row — never import keys
+  // strip secrets if caller passed full row
   delete out.ai_key
   delete out.kimi_key
   delete out.openai_key
-  delete out.openai_base_url
   delete out.humanizer_pw
   delete out.humanizer_pass
-  delete out.humanizer_email
   return out
 }

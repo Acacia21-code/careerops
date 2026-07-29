@@ -8,6 +8,8 @@
   "type": "module",
   "files": [
     "bin",
+    "lib",
+    "plugins",
     "skill",
     "README.md"
   ],

@@ -56,6 +56,21 @@ if (!/\badvise\b/i.test(doctrine)) {
 } else {
   console.log('ok  advise mode listed')
 }
+if (!/run-chain|human.?gated|prep-pipeline/i.test(doctrine)) {
+  console.log('FAIL mode chains missing from SKILL.md')
+  failed = true
+} else {
+  console.log('ok  mode chains listed')
+}
+
+const list = spawnSync(process.execPath, [bin, 'run-chain', '--list'], { encoding: 'utf8' })
+if (list.status !== 0 || !/prep-pipeline/.test(list.stdout)) {
+  console.log('FAIL run-chain --list')
+  console.error(list.stdout, list.stderr)
+  failed = true
+} else {
+  console.log('ok  run-chain --list')
+}
 
 fs.rmSync(tmp, { recursive: true, force: true })
 if (failed) process.exit(1)

@@ -86,3 +86,34 @@ Nudge when cadence is due by calendar AND `now > snoozed_until` AND no entry in 
 ## Portfolio & advisor
 
 Same sync/provenance doctrine. Portfolio promotes into `resume_struct.projects[]` with `source_type: 'portfolio'`. Advisor briefs separate **Observed in your materials** from **Suggested next skills** (labeled market judgment) and use the same ranked selection — never newest-20.
+
+## Interview events
+
+Interview rounds are durable facts about the search, not invented prep:
+
+- Persist rounds (`role_id`, `round`, `scheduled_at`, `type`, `notes`, optional interviewer name) — survive refresh/devices
+- Prep drafts are `mt_reports.kind='interview'` — recoverable, **copy-only** (never auto-send thank-you / follow-up)
+- Follow-up due dates prefer real event dates when present
+- Skill `interview` / `followup` read events + story bank; they do not invent interviewer bios or rounds the user did not record
+
+## Structured offers
+
+Offer comparison uses **user-entered** numbers only:
+
+- Structured fields: `base`, `bonus`, `equity_notes`, `remote`, `deadline`, `currency`, free-text `note`
+- Side-by-side compare is arithmetic/display over stored fields — never invent comp
+- Posted band / target band / offer gaps are labeled as **data from materials or user input**, not “market average”
+- Skill `outcome` reads/writes structured fields via board pack; no third-party salary fantasy DB in core doctrine
+
+## Enrichment as inbox candidates (Accept)
+
+GitHub / LinkedIn (and similar) enrichment follows polish/accept and accomplishment inbox:
+
+- Fetch public metadata only where ToS-safe, or accept pasted source text
+- Propose `mt_portfolio_items` / `mt_accomplishments` with `body_original` = source excerpt; status **inbox** until Accept
+- Never auto-promote enrichment into `resume_struct`
+- Never silent scrape into the live resume
+
+## Explicitly deferred forever (unless doctrine changes)
+
+Auto-apply; auto-send email; silent LinkedIn (or similar) scrape into resume; invented salary bands; ungated multi-agent writes of experience without accept.

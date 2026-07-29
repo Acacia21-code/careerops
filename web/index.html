@@ -185,9 +185,27 @@
   .cardlet .match-pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-weak);color:var(--accent-ink)}
   .lock-row{display:flex;flex-direction:column;gap:6px;padding:8px 12px;margin:6px 0 10px;border:1px solid var(--hair);border-radius:10px;background:var(--surface-2);font-size:12.5px}
   .lock-row label{display:flex;gap:8px;align-items:center;font-weight:400;margin:0}
-  .review-box,.ats-box,.draft-ans,.story-box,.outcome-box,.research-box,.interview-box{
+  .review-box,.ats-box,.draft-ans,.story-box,.outcome-box,.research-box,.interview-box,.iv-rounds{
     border:1px solid var(--hair);border-radius:12px;padding:12px 14px;background:var(--surface-2);margin-top:10px;font-size:12.5px;line-height:1.5}
   .review-box h4,.ats-box h4,.draft-ans h4,.story-box h4,.outcome-box h4,.research-box h4,.interview-box h4{margin:0 0 8px;font-size:13px}
+  .iv-round{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:10px 0;border-bottom:1px solid var(--hair)}
+  .iv-round:last-child{border-bottom:0;padding-bottom:0}
+  .iv-round .iv-meta{flex:1 1 140px;min-width:120px}
+  .iv-round label{display:block;font-size:11px;color:var(--text-2);margin-bottom:3px;font-weight:600}
+  .iv-round input,.iv-round select,.iv-round textarea{width:100%;font:inherit;font-size:12.5px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface)}
+  .iv-round textarea{min-height:52px;resize:vertical}
+  .iv-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .offer-compare{overflow:auto;margin-top:8px}
+  .offer-compare table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .offer-compare th,.offer-compare td{border:1px solid var(--hair);padding:8px 10px;text-align:left;vertical-align:top}
+  .offer-compare th{background:var(--surface-2);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2)}
+  .offer-compare .oc-pick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .offer-compare .oc-pick label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;margin:0}
+  .shipped-box{border:1px solid var(--hair);border-radius:12px;padding:12px 14px;background:var(--surface-2);margin-top:10px;font-size:12.5px;line-height:1.5}
+  .shipped-box .ship-answer{font-weight:600;margin:0 0 8px;color:var(--text)}
+  .shipped-box ol{margin:0;padding-left:18px}
+  .shipped-box li{margin:4px 0}
+  .shipped-box .ship-type{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);margin-right:6px}
   .ats-box .chip.hit{background:#e8f7ef;color:#1a7f37}
   .ats-box .chip.miss{background:#fff0f0;color:#c00}
   .sent.on{background:#e8f7ef;color:#1a7f37;cursor:pointer}
@@ -728,6 +746,11 @@
           <button type="button" class="btn sm danger-ghost block" id="dw_not_for_me" style="margin-top:12px" title="Moves this role to Closed — not deleted">Not for me — hide this role</button>
           <p class="muted" style="margin:6px 0 0;font-size:12px;line-height:1.4;text-align:center">Hides it in Closed. Drag it back anytime, or use Put back on the Closed card.</p>
         </div>
+        <div class="section">
+          <div class="lbl">What shipped</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Which resume version you marked Sent, match scores over time, and the outcome — facts only.</p>
+          <div id="dw_shipped" class="shipped-box" aria-live="polite"></div>
+        </div>
         <details class="section more-tools">
           <summary class="lbl" style="cursor:pointer">More tools — evaluate, drafts, prep</summary>
           <p class="muted" style="margin:8px 0;font-size:12.5px;line-height:1.5">Optional helpers. Main path is <b>Build resume</b> above, then <b>Open JD ↗</b>.</p>
@@ -750,20 +773,43 @@
           <div id="dw_ans" class="draft-ans hidden" aria-live="polite"></div>
         </div>
         <div class="section" id="dw_interview_sec">
-          <div class="lbl">Interview prep</div>
-          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Angles from your evaluate pack + story bank. You still speak for yourself.</p>
+          <div class="lbl">Interview rounds</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Track screen / onsite / loop dates. Synced to your account. Follow-ups use these dates when present.</p>
+          <div id="dw_iv_rounds" class="iv-rounds" aria-live="polite"></div>
+          <div class="iv-actions">
+            <button type="button" class="btn sm" id="dw_iv_add">Add round</button>
+          </div>
+          <div class="lbl" style="margin-top:14px">Interview prep</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Angles from your evaluate pack + story bank. Saved as a recoverable draft — copy only, never sends.</p>
           <button type="button" class="btn sm" id="dw_interview_btn">Build interview angles</button>
           <div id="dw_interview_box" class="interview-box hidden" aria-live="polite"></div>
         </div>
         <div class="section">
           <div class="lbl">Company research &amp; outreach</div>
-          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Short blurb + outreach draft from JD + your materials. Copy only — never send.</p>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Short blurb + outreach draft from JD + your materials. Copy only — never send. Use <b>Log touch</b> after you copy to update CRM.</p>
           <button type="button" class="btn sm" id="dw_research_btn">Draft research + outreach</button>
           <div id="dw_research_box" class="research-box hidden" aria-live="polite"></div>
         </div>
+        <div class="section" id="dw_contacts_sec">
+          <div class="lbl">Contacts for this role</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Linked recruiters / network. Log touches from drafts — CareerOps never sends email.</p>
+          <div id="dw_contacts" class="contacts-box" aria-live="polite"></div>
+          <div class="row" style="gap:8px;align-items:end;margin-top:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:100px"><label>Name</label><input id="dw_ct_name" placeholder="Name"></div>
+            <div style="flex:0 0 110px"><label>Channel</label>
+              <select id="dw_ct_channel"><option value="email">email</option><option value="linkedin">linkedin</option><option value="phone">phone</option><option value="other">other</option></select>
+            </div>
+            <button type="button" class="btn sm" id="dw_ct_add">Add</button>
+          </div>
+        </div>
+        <div class="section" id="dw_salary_sec">
+          <div class="lbl">Comp — target vs posted vs offer</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Posted band from ATS when present. Gaps are data differences — not market averages. No third-party salary API.</p>
+          <div id="dw_salary" class="salary-box" aria-live="polite"></div>
+        </div>
         <div class="section">
           <div class="lbl">Outcome</div>
-          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Optional note when you get an offer, reject, or withdraw. Stored on this device.</p>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Optional note when you get an offer, reject, or withdraw. Synced to your account (local fallback if offline). Offer numbers are yours only — never invented.</p>
           <div class="row" style="gap:8px;align-items:end">
             <div style="flex:1"><label>Result</label>
               <select id="dw_outcome_kind">
@@ -776,10 +822,35 @@
             </div>
             <div style="flex:1"><label>Date</label><input id="dw_outcome_date" type="date"></div>
           </div>
+          <div id="dw_offer_fields" class="hidden" style="margin-top:8px">
+            <div class="row" style="gap:8px;align-items:end;flex-wrap:wrap">
+              <div style="flex:1;min-width:100px"><label>Base</label><input id="dw_offer_base" type="text" inputmode="decimal" placeholder="e.g. 150000"></div>
+              <div style="flex:1;min-width:100px"><label>Bonus</label><input id="dw_offer_bonus" type="text" inputmode="decimal" placeholder="e.g. 15000"></div>
+              <div style="flex:0 0 88px"><label>Currency</label><input id="dw_offer_currency" type="text" value="USD" maxlength="3"></div>
+            </div>
+            <div class="row" style="gap:8px;align-items:end;margin-top:8px;flex-wrap:wrap">
+              <div style="flex:1;min-width:120px"><label>Remote</label>
+                <select id="dw_offer_remote">
+                  <option value="">—</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">Onsite</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:120px"><label>Offer deadline</label><input id="dw_offer_deadline" type="date"></div>
+            </div>
+            <label style="margin-top:8px;display:block">Equity notes</label>
+            <textarea id="dw_offer_equity" style="min-height:52px" placeholder="RSUs, strike, vesting — your numbers only"></textarea>
+          </div>
           <label>Why / notes</label>
           <textarea id="dw_outcome_note" style="min-height:70px" placeholder="Offer terms, reject reason, what you’d do differently…"></textarea>
           <button type="button" class="btn sm" id="dw_outcome_save" style="margin-top:8px">Save outcome</button>
           <div id="dw_outcome_view" class="outcome-box hidden" style="margin-top:8px"></div>
+        </div>
+        <div class="section" id="dw_offer_compare_sec">
+          <div class="lbl">Compare offers</div>
+          <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Side-by-side for 2–3 roles with an Offer outcome. Empty fields stay blank — no invented comp.</p>
+          <div id="dw_offer_compare" class="offer-compare" aria-live="polite"></div>
         </div>
         </details>
       </div>
@@ -849,7 +920,10 @@
         <div id="rp2_ats_box" class="ats-box hidden" aria-live="polite"></div>
       </div>
       <div style="max-width:740px;margin:22px auto 0">
-        <div class="lbl">Saved versions</div>
+        <div class="lbl">What shipped</div>
+        <p class="muted" style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Match history, which version you marked Sent, and the linked outcome — no A/B magic.</p>
+        <div id="bv_shipped" class="shipped-box" aria-live="polite"></div>
+        <div class="lbl" style="margin-top:18px">Saved versions</div>
         <div class="rp2-tl" id="rp2_tl"></div>
         <div id="rp2_vers"><p class="muted" style="font-size:13px;margin:6px 0 0">Nothing saved yet.</p></div>
         <span id="rp2_verscount" class="hidden"></span>
@@ -1033,6 +1107,11 @@
   <label>Target job titles</label><input id="s_titles">
   <label>Keywords</label><input id="s_keywords">
   <div class="row"><div><label>Seniority</label><input id="s_seniority"></div><div><label>Locations <span class="h">US / city / Remote — foreign-pinned Remote is blocked</span></label><input id="s_locations" placeholder="Remote, US, Chicago"></div></div>
+  <div class="row">
+    <div><label>Target base min <span class="h">your number — not a market average</span></label><input id="s_band_min" type="text" inputmode="decimal" placeholder="e.g. 140000"></div>
+    <div><label>Target base max</label><input id="s_band_max" type="text" inputmode="decimal" placeholder="e.g. 180000"></div>
+    <div style="flex:0 0 88px"><label>Currency</label><input id="s_band_cur" type="text" value="USD" maxlength="3"></div>
+  </div>
   <label>Resume</label><textarea id="s_resume"></textarea>
 
   <h3 style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">Find hygiene</h3>
@@ -1092,7 +1171,28 @@
     <button id="exp_csv">⬇︎ Export board (CSV)</button>
     <button id="exp_boardpack" title="Roles + materials + reports for local skill runs">⬇︎ Board pack (skill)</button>
   </div>
-  <p class="muted" style="font-size:12px;margin:8px 0 0">Board pack is a sanitized ZIP-ready JSON for agent skill modes (scan/evaluate/rank/tailor/advise/…). API keys are never included. Includes bullet memory + portfolio with provenance (schema_version 2).</p>
+  <p class="muted" style="font-size:12px;margin:8px 0 0">Board pack is sanitized JSON for agent skill modes (scan/evaluate/rank/tailor/advise/…). API keys are never included. Schema v5: roles (incl. posted comp), materials, reports, accomplishments, portfolio, contacts, outcomes, interview events, target band. Formats for self-hosters: <code>CareerOps_board_pack.json</code> (skill), full JSON export, board CSV.</p>
+  <div class="row" style="margin-top:10px;align-items:center;gap:8px;flex-wrap:wrap">
+    <label class="btn sm" style="margin:0;cursor:pointer">⬆︎ Import board pack<input type="file" id="imp_boardpack" accept="application/json,.json" hidden></label>
+    <span class="muted" style="font-size:12px">Upserts roles / materials / memory / portfolio / contacts. Keys never imported. Confirm before write.</span>
+  </div>
+  <p id="imp_boardpack_status" class="muted" style="font-size:12.5px;margin:6px 0 0"></p>
+
+  <h3 style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">Contacts (CRM)</h3>
+  <p class="muted" style="font-size:12.5px;margin:0 0 8px">Recruiters &amp; network — draft + log only. No Gmail/Outlook OAuth, no auto-send.</p>
+  <div class="row" style="gap:8px;align-items:end;flex-wrap:wrap">
+    <div style="flex:1;min-width:120px"><label>Name</label><input id="s_ct_name" placeholder="Alex Recruiter"></div>
+    <div style="flex:0 0 120px"><label>Channel</label>
+      <select id="s_ct_channel"><option value="email">email</option><option value="linkedin">linkedin</option><option value="phone">phone</option><option value="other">other</option></select>
+    </div>
+    <div style="flex:1;min-width:120px"><label>Company</label><input id="s_ct_company" placeholder="Acme"></div>
+  </div>
+  <label>Notes</label><textarea id="s_ct_notes" style="min-height:52px" placeholder="Optional"></textarea>
+  <div class="row" style="margin-top:8px;gap:8px;align-items:center">
+    <button type="button" class="btn sm" id="s_ct_add">Add contact</button>
+    <input id="s_ct_filter" placeholder="Filter by company…" style="flex:1;min-width:140px">
+  </div>
+  <div id="s_ct_list" style="margin-top:10px"></div>
 
   <h3 style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">Bullet memory cadence</h3>
   <p class="muted" style="font-size:12.5px;margin:0 0 8px">Calendar reminders to capture facts — not “days since last entry.” Promotion does not count as logging.</p>
@@ -1113,7 +1213,16 @@
 <div id="memoryModal" class="modal hidden"><div class="box" style="max-width:720px;max-height:90vh;overflow:auto">
   <h2 style="margin:0 0 6px">Bullet memory</h2>
   <p class="muted" style="font-size:12.5px;margin:0 0 12px">Capture real accomplishments. <b>Original text stays immutable</b>. AI polish needs Accept. Promote writes both ways into your structured resume.</p>
-  <label>New accomplishment</label>
+  <h3 style="margin:14px 0 6px;font-size:13px">Enrich from URL</h3>
+  <p class="muted" style="font-size:12px;margin:0 0 8px">Paste a GitHub repo/user or LinkedIn profile/job URL. Lands in <b>inbox</b> until you Accept — never auto-promotes into resume.</p>
+  <label>URL</label><input id="mem_enrich_url" placeholder="https://github.com/org/repo or linkedin.com/in/…">
+  <label>Paste excerpt <span class="h">required when LinkedIn fetch is blocked</span></label>
+  <textarea id="mem_enrich_paste" style="min-height:60px" placeholder="README / About / role text…"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button type="button" class="btn sm" id="mem_enrich_propose">Propose candidates</button>
+  </div>
+  <div id="mem_enrich_preview" class="hidden" style="margin-top:10px;padding:10px;border:1px solid var(--hair);border-radius:12px;background:var(--surface-2)"></div>
+  <label style="margin-top:14px">New accomplishment</label>
   <textarea id="mem_body" style="min-height:70px" placeholder="What you did — metrics only if true"></textarea>
   <div class="row">
     <div><label>Link to resume role <span class="h">optional</span></label><select id="mem_role"><option value="">— none —</option></select></div>
@@ -1179,13 +1288,34 @@ import {
   promoteAccomplishment, promotePortfolio, healSourceLinks,
   renderResumeTextFromStruct, healBulletsPreserveSource, stableRoleKey,
 } from './lib/resume-sync.mjs'
-import { buildBoardPack } from './lib/board-pack.mjs'
+import { buildBoardPack, importBoardPack, planBoardPackUpsert } from './lib/board-pack.mjs'
 import {
   createPortfolioItem, editPortfolioItem, archivePortfolioItem, resumeOkItems,
 } from './lib/portfolio.mjs'
 import {
   buildAdvisorContext, advisorSystemPrompt, normalizeAdvisorBrief, advisorReportRow,
 } from './lib/advisor.mjs'
+import {
+  readLocalCareerTruth, writeLocalCareerTruth,
+  isDurabilityMigrated, markDurabilityMigrated,
+  planDurabilityMigrate, remoteCareerTruthFromDb, applyRemoteAuthoritative,
+  normalizeOutcome, outcomeRowFromLocal,
+} from './lib/career-durability.mjs'
+import {
+  INTERVIEW_EVENT_TYPES, normalizeInterviewEvent, interviewEventRowFromLocal,
+  eventsForRole, buildFollowupStrip, nextRoundNumber, interviewReportRow,
+} from './lib/interview-events.mjs'
+import { buildOfferCompare, formatMoney, parseMoneyInput } from './lib/offer-compare.mjs'
+import { buildVersionTimeline, timelineLines } from './lib/version-timeline.mjs'
+import {
+  CONTACT_CHANNELS, normalizeContact, contactRowFromLocal, logTouch, filterContacts,
+  channelFromDraftKind,
+} from './lib/contacts-crm.mjs'
+import { postedCompLabel, normalizeCompRange } from './lib/ats-comp.mjs'
+import { buildSalaryCompare, normalizeTargetBand, targetBandLabel, parseBandInput } from './lib/salary-compare.mjs'
+import {
+  classifyEnrichUrl, proposeEnrichCandidates, fetchPublicEnrichMeta, acceptEnrichCandidate,
+} from './lib/enrich-inbox.mjs'
 const SUPABASE_URL = 'https://vqcjdqhcdhxjlznpqing.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_nNiBFGj8_NHI2vksvZEpFw_D30oUi5x'
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -1711,14 +1841,224 @@ async function emptyClosedRoles(){
   }
   return n
 }
+let DURABILITY_DB_OK=true
+let IV_EVENTS=[]
+let IV_DB_OK=true
+function interviewEventsKey(){ return 'co_interview_events_'+(ME?.id||'anon') }
+function loadInterviewEventsLocal(){
+  try{ return (JSON.parse(localStorage.getItem(interviewEventsKey())||'[]')||[]).map(normalizeInterviewEvent).filter(Boolean) }
+  catch(_e){ return [] }
+}
+function saveInterviewEventsLocal(rows){
+  const list=(rows||[]).map(normalizeInterviewEvent).filter(Boolean)
+  localStorage.setItem(interviewEventsKey(), JSON.stringify(list))
+  IV_EVENTS=list
+  return list
+}
+let CT_ROWS=[]
+let CT_DB_OK=true
+let ENRICH_PENDING=null
+function contactsKey(){ return 'co_contacts_'+(ME?.id||'anon') }
+function loadContactsLocal(){
+  try{ return (JSON.parse(localStorage.getItem(contactsKey())||'[]')||[]).map(normalizeContact).filter(Boolean) }
+  catch(_e){ return [] }
+}
+function saveContactsLocal(rows){
+  const list=(rows||[]).map(normalizeContact).filter(Boolean)
+  localStorage.setItem(contactsKey(), JSON.stringify(list))
+  CT_ROWS=list
+  return list
+}
+async function loadContactsFromDb(){
+  if(!ME?.id){ CT_ROWS=loadContactsLocal(); return CT_ROWS }
+  try{
+    const { data, error } = await sb.from('mt_contacts').select('*').eq('owner', ME.id).order('last_touch_at',{ascending:false,nullsFirst:false})
+    if(error){
+      if(/mt_contacts|does not exist|relation|schema cache/i.test(error.message||'')) CT_DB_OK=false
+      CT_ROWS=loadContactsLocal()
+      return CT_ROWS
+    }
+    CT_DB_OK=true
+    const remote=(data||[]).map(normalizeContact).filter(Boolean)
+    const localOnly=loadContactsLocal().filter(c=>String(c.id||'').startsWith('local-') && !remote.some(r=>String(r.id)===String(c.id)))
+    CT_ROWS=saveContactsLocal([...remote, ...localOnly])
+    return CT_ROWS
+  }catch(_e){
+    CT_DB_OK=false
+    CT_ROWS=loadContactsLocal()
+    return CT_ROWS
+  }
+}
+async function upsertContact(raw){
+  const n=normalizeContact(raw)
+  if(!n) return null
+  let list=CT_ROWS.length?CT_ROWS.slice():loadContactsLocal()
+  const idx=list.findIndex(x=>String(x.id)===String(n.id))
+  if(idx>=0) list[idx]={...list[idx],...n}
+  else {
+    if(!n.id) n.id='local-'+Date.now()
+    list.push(n)
+  }
+  saveContactsLocal(list)
+  if(!ME?.id || !CT_DB_OK) return n
+  try{
+    const row=contactRowFromLocal(n, ME.id)
+    if(!row) return n
+    if(n.id && !String(n.id).startsWith('local-')){
+      const { data, error } = await sb.from('mt_contacts').upsert(row).select('*').maybeSingle()
+      if(error){
+        if(/mt_contacts|does not exist|relation|schema cache/i.test(error.message||'')) CT_DB_OK=false
+        return n
+      }
+      if(data){
+        list=list.map(x=>String(x.id)===String(n.id)?normalizeContact(data):x)
+        saveContactsLocal(list)
+        return normalizeContact(data)
+      }
+    } else {
+      const { id: _drop, ...insertRow } = row
+      const { data, error } = await sb.from('mt_contacts').insert(insertRow).select('*').maybeSingle()
+      if(error){
+        if(/mt_contacts|does not exist|relation|schema cache/i.test(error.message||'')) CT_DB_OK=false
+        return n
+      }
+      if(data){
+        list=list.map(x=>String(x.id)===String(n.id)?normalizeContact(data):x)
+        saveContactsLocal(list)
+        return normalizeContact(data)
+      }
+    }
+  }catch(_e){ CT_DB_OK=false }
+  return n
+}
+async function logTouchOnContact(contactId, { noteLine='', roleId=null } = {}){
+  const list=CT_ROWS.length?CT_ROWS:loadContactsLocal()
+  const cur=list.find(c=>String(c.id)===String(contactId))
+  if(!cur) return null
+  const next=logTouch(cur, { noteLine, roleId, at: new Date().toISOString() })
+  return upsertContact(next)
+}
+function paintContactsSettings(){
+  const root=$('s_ct_list'); if(!root) return
+  const q=$('s_ct_filter')?.value||''
+  const list=filterContacts(CT_ROWS.length?CT_ROWS:loadContactsLocal(), { company: q })
+  if(!list.length){ root.innerHTML='<p class="muted" style="margin:0;font-size:12.5px">No contacts yet.</p>'; return }
+  root.innerHTML=list.map(c=>`<div style="border:1px solid var(--hair);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12.5px">
+    <b>${esc(c.name)}</b> · ${esc(c.channel)}${c.company?' · '+esc(c.company):''}
+    ${c.last_touch_at?`<span class="muted"> · last touch ${(c.last_touch_at||'').slice(0,10)}</span>`:''}
+    ${c.notes?`<div class="muted" style="white-space:pre-wrap;margin-top:4px">${esc(c.notes.slice(0,240))}</div>`:''}
+  </div>`).join('')
+}
+function paintRoleContacts(roleId){
+  const root=$('dw_contacts'); if(!root) return
+  const role=findRole(roleId)
+  const list=filterContacts(CT_ROWS.length?CT_ROWS:loadContactsLocal(), {
+    roleId,
+    company: '',
+  })
+  // also show company-matched contacts not yet linked
+  const coList=role?.company
+    ? filterContacts(CT_ROWS.length?CT_ROWS:loadContactsLocal(), { company: role.company })
+        .filter(c=>!list.some(x=>String(x.id)===String(c.id)))
+    : []
+  const all=[...list, ...coList]
+  if(!all.length){
+    root.innerHTML='<p class="muted" style="margin:0;font-size:12.5px">No contacts linked. Add one below, or Log touch from a draft.</p>'
+    return
+  }
+  root.innerHTML=all.map(c=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--hair);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12.5px">
+    <span style="flex:1"><b>${esc(c.name)}</b> · ${esc(c.channel)}${c.last_touch_at?' · '+(c.last_touch_at||'').slice(0,10):''}</span>
+    <button type="button" class="btn sm" data-ct-touch="${esc(String(c.id))}">Log touch</button>
+  </div>`).join('')
+  root.querySelectorAll('[data-ct-touch]').forEach(btn=>{
+    btn.onclick=async()=>{
+      await logTouchOnContact(btn.dataset.ctTouch, { noteLine: 'Manual log touch', roleId })
+      paintRoleContacts(roleId)
+      paintContactsSettings()
+      logEvent('contact_touch', roleId, { contact_id: btn.dataset.ctTouch })
+    }
+  })
+}
+function paintSalaryCompare(roleId){
+  const root=$('dw_salary'); if(!root) return
+  const role=findRole(roleId)
+  const cmp=buildSalaryCompare({
+    profile: PROFILE,
+    role,
+    outcome: loadOutcomes()[roleId] || null,
+  })
+  const posted=postedCompLabel(role)
+  const gaps=cmp.gaps.length
+    ? `<ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px">${cmp.gaps.map(g=>`<li>${esc(g.label)}</li>`).join('')}</ul>`
+    : '<p class="muted" style="margin:8px 0 0;font-size:12px">No gaps to label yet — set a target band in Settings and/or wait for posted/offer numbers.</p>'
+  root.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+    ${cmp.rows.map(r=>`<tr><th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--hair);color:var(--text-2);font-weight:600;width:40%">${esc(r.label)}</th>
+      <td style="padding:4px 8px;border-bottom:1px solid var(--hair)">${esc(r.value)}</td></tr>`).join('')}
+  </table>
+  ${posted && !normalizeCompRange(role?.comp_range)?.min ? `<p class="muted" style="margin:6px 0 0;font-size:12px">Posted raw: ${esc(posted)}</p>`:''}
+  ${gaps}
+  <p class="muted" style="margin:8px 0 0;font-size:11.5px">${esc(cmp.doctrine)}</p>`
+}
+function paintCopyBox(el, title, text, opts={}){
+  if(!el) return
+  const kind=opts.kind||''
+  const roleId=opts.roleId || CURROLE?.id || null
+  el.classList.remove('hidden')
+  el.innerHTML='<h4>'+esc(title)+'</h4><div style="white-space:pre-wrap;margin:0 0 8px">'+esc(text||'')+'</div>'
+    +'<div class="row" style="gap:8px;flex-wrap:wrap">'
+    +'<button type="button" class="btn sm" data-copy="1">Copy</button>'
+    +(roleId?`<button type="button" class="btn sm" data-log-touch="1">Log touch</button>`:'')
+    +'</div>'
+    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Copy only — CareerOps never submits forms or sends email. Log touch updates CRM after you copy.</p>'
+  el.querySelector('[data-copy]')?.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(text||''); el.querySelector('[data-copy]').textContent='Copied ✓' }
+    catch(_e){ prompt('Copy this text:', text||'') }
+  })
+  el.querySelector('[data-log-touch]')?.addEventListener('click', async ()=>{
+    const name=prompt('Contact name to log this touch against:', CURROLE?.company ? CURROLE.company+' recruiter' : '')
+    if(!name || !String(name).trim()) return
+    const channel=channelFromDraftKind(kind||title)
+    const existing=filterContacts(CT_ROWS.length?CT_ROWS:loadContactsLocal(), { roleId, company: CURROLE?.company||'' })
+      .find(c=>c.name.toLowerCase()===String(name).trim().toLowerCase())
+    let contact=existing
+    if(!contact){
+      contact=await upsertContact({
+        id: 'local-'+Date.now(),
+        name: String(name).trim(),
+        channel,
+        company: CURROLE?.company||'',
+        role_ids: roleId ? [roleId] : [],
+        notes: '',
+      })
+    }
+    await logTouchOnContact(contact.id, {
+      noteLine: `Copied draft: ${kind||title||'outreach'}`,
+      roleId,
+    })
+    paintRoleContacts(roleId)
+    paintContactsSettings()
+    const btn=el.querySelector('[data-log-touch]')
+    if(btn) btn.textContent='Touch logged ✓'
+    logEvent('contact_touch_from_draft', roleId, { kind: kind||title, channel })
+  })
+}
 function sentStore(){ try{ return JSON.parse(localStorage.getItem('co_sent')||'{}')||{} }catch(_e){ return {} } }
-function isSent(id){ return !!sentStore()[id] }
-function setSent(id, on){ const m=sentStore(); if(on) m[id]=1; else delete m[id]; localStorage.setItem('co_sent', JSON.stringify(m)) }
+function isSent(id){ return !!sentStore()[id] || !!(ROLESMAP[id] && ROLESMAP[id].sent_at) }
+function setSent(id, on){
+  const m=sentStore(); if(on) m[id]=1; else delete m[id]
+  localStorage.setItem('co_sent', JSON.stringify(m))
+  persistRoleSent(id, on)
+}
 function sentVerStore(){ try{ return JSON.parse(localStorage.getItem('co_sent_ver')||'{}')||{} }catch(_e){ return {} } }
-function isVerSent(verId){ return !!sentVerStore()[verId] }
+function isVerSent(verId){
+  if(!!sentVerStore()[verId]) return true
+  const row=(RP2ROWS||[]).find(x=>String(x.id)===String(verId))
+  return !!(row && row.sent_at)
+}
 function setVerSent(verId, on){
   const m=sentVerStore(); if(on) m[verId]=1; else delete m[verId]
   localStorage.setItem('co_sent_ver', JSON.stringify(m))
+  persistVerSent(verId, on)
 }
 function roleHasSentVer(roleId){
   if(isSent(roleId)) return true
@@ -1759,15 +2099,26 @@ function saveTriagePrefs(p){
 let TRIAGE_PREFS={ sort:'match_desc', filter:'all' }
 function storiesKey(){ return 'co_stories_'+(ME?.id||'anon') }
 function loadStories(){
+  if(PROFILE && Object.prototype.hasOwnProperty.call(PROFILE, 'story_bank') && PROFILE.story_bank!=null){
+    return String(PROFILE.story_bank)
+  }
   try{ return String(localStorage.getItem(storiesKey())||'') }catch(_e){ return '' }
 }
-function saveStories(t){ localStorage.setItem(storiesKey(), String(t||'')); return t }
+function saveStories(t){
+  const v=String(t||'')
+  localStorage.setItem(storiesKey(), v)
+  if(PROFILE) PROFILE.story_bank=v
+  persistStoryBank(v)
+  return v
+}
 function storyList(){ return loadStories().split(/\n+/).map(x=>x.trim()).filter(Boolean) }
 function outcomesKey(){ return 'co_outcomes_'+(ME?.id||'anon') }
 function loadOutcomes(){ try{ return JSON.parse(localStorage.getItem(outcomesKey())||'{}')||{} }catch(_e){ return {} } }
 function saveOutcome(roleId, o){
-  const m=loadOutcomes(); if(!o||!o.kind) delete m[roleId]; else m[roleId]=o
-  localStorage.setItem(outcomesKey(), JSON.stringify(m)); return m
+  const m=loadOutcomes(); if(!o||!o.kind) delete m[roleId]; else m[roleId]=normalizeOutcome(o)||o
+  localStorage.setItem(outcomesKey(), JSON.stringify(m))
+  persistOutcome(roleId, o)
+  return m
 }
 function materialsStore(){ try{ return JSON.parse(localStorage.getItem('co_materials')||'{}')||{} }catch(_e){ return {} } }
 
@@ -2149,10 +2500,21 @@ function openBuilderView(){
 
 let ROLESMAP={}, HASDOC=new Set()
 async function load(){
-  const [{ data:roles }, { data:reps }] = await Promise.all([
-    sb.from('mt_roles').select('*').order('created_at',{ascending:false}),
-    sb.from('mt_reports').select('role_id,kind,match_score,created_at').order('created_at',{ascending:false})
-  ])
+  let roles=null, reps=null
+  {
+    let rolesRes = await sb.from('mt_roles').select('*').order('created_at',{ascending:false})
+    if(rolesRes.error && /sent_at|column/i.test(rolesRes.error.message||'')){
+      rolesRes = await sb.from('mt_roles').select('id,owner,company,title,level,url,source,fit_score,match_score,stage,ghost_risk,jd,notes,location,created_at,updated_at').order('created_at',{ascending:false})
+    }
+    roles = rolesRes.data
+  }
+  {
+    let repsRes = await sb.from('mt_reports').select('role_id,kind,match_score,created_at,sent_at').order('created_at',{ascending:false})
+    if(repsRes.error && /sent_at|column/i.test(repsRes.error.message||'')){
+      repsRes = await sb.from('mt_reports').select('role_id,kind,match_score,created_at').order('created_at',{ascending:false})
+    }
+    reps = repsRes.data
+  }
   // Board cards used to ignore match reports — so Rank Sourced could "succeed" (report saved)
   // while the Sourced pill stayed blank if mt_roles.match_score didn't stick.
   const latestMatch={}
@@ -2172,6 +2534,9 @@ async function load(){
   FIND_PREFS = loadFindPrefs()
   paintCadenceNudge()
   paintReconcileBanner()
+  await syncDurabilityFromDb({ roles: roles||[], reports: reps||[] })
+  await syncInterviewEventsFromDb()
+  await loadContactsFromDb()
   loadAccomplishments().then(()=>loadPortfolioRows()).then(async ()=>{
     if(PROFILE?.resume_struct && MEM_ROWS?.length){
       try{
@@ -2259,13 +2624,15 @@ async function load(){
       const ageHtml = stale==null ? '' : `<span class="age-pill" title="Days on board">${stale}d</span>`
       const locLabel = String(r.location||'').trim()
       const locHtml = locLabel ? `<span class="age-pill" title="ATS location">${esc(locLabel.slice(0,42))}${locLabel.length>42?'…':''}</span>` : ''
+      const compLabel = postedCompLabel(r)
+      const compHtml = compLabel ? `<span class="age-pill" title="Posted compensation (ATS)">${esc(compLabel.slice(0,36))}${compLabel.length>36?'…':''}</span>` : ''
       const hideBtn = s===CLOSED
         ? `<button type="button" class="not-me restore" data-restore="${r.id}" title="Move back to Sourced">Put back</button>`
         : `<button type="button" class="not-me" data-not-me="${r.id}" title="Not a fit — move to Closed (not deleted)">Not for me</button>`
       return `<div class="cardlet${activeCard===r.id?' active':''}" draggable="true" data-id="${r.id}">
       <div class="co">${esc(r.company||'—')}</div>
       <div class="role">${esc(r.title||'')}</div>
-      <div class="meta">${mHtml}${vHtml}${doc}${stampHtml}${flag}${locHtml}${ageHtml}</div>
+      <div class="meta">${mHtml}${vHtml}${doc}${stampHtml}${flag}${locHtml}${compHtml}${ageHtml}</div>
       ${r.url?`<a class="jd" href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open JD ↗</a>`:''}
       ${hideBtn}
     </div>`}).join('') : '<div class="muted" style="font-size:11px;padding:6px">—</div>'
@@ -2291,15 +2658,18 @@ async function load(){
   $('board').querySelectorAll('[data-restore]').forEach(btn=>{
     btn.onclick=e=>{ e.preventDefault(); e.stopPropagation(); restoreDismissedRole(btn.dataset.restore) }
   })
-  // ⏰ follow-ups: derived from Applied/Interview — due 14 days after landing there; click opens the role
-  const DAY=864e5, now=Date.now()
-  const fu=(roles||[]).filter(r=>r.stage==='applied'||r.stage==='interview').map(r=>{
-    const due=new Date(new Date(r.created_at||now).getTime()+14*DAY); return { r, due, overdue: due.getTime()<=now }
-  }).sort((a,b)=>a.due-b.due)
+  // ⏰ follow-ups: prefer interview event dates; else 14d after Applied/Interview landing
+  const fu = buildFollowupStrip(
+    (roles||[]).filter(r=>r.stage==='applied'||r.stage==='interview'||r.stage==='offer'),
+    IV_EVENTS.length ? IV_EVENTS : loadInterviewEventsLocal()
+  )
   $('followups').classList.toggle('hidden', !fu.length)
   $('followups').innerHTML = fu.length ? '<span class="fu-label">⏰ FOLLOW-UPS DUE</span><div class="fu-row">'+fu.map(f=>{
-    const label=`${f.r.company||'—'} — ${f.r.title||''} · ${f.overdue?'follow up now':'by '+f.due.toISOString().slice(0,10)}`
-    return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.r.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.r.id}" title="Draft a follow-up note — never sends">Draft follow-up note</button></span></span>`
+    const when = f.labelKind==='upcoming'
+      ? ((f.event?.type||'interview')+' · '+f.due.toISOString().slice(0,10))
+      : (f.overdue?'follow up now':'by '+f.due.toISOString().slice(0,10))
+    const label=`${f.role.company||'—'} — ${f.role.title||''} · ${when}`
+    return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.role.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.role.id}" title="Draft a follow-up note — never sends">Draft follow-up note</button></span></span>`
   }).join('')+'</div>' : ''
   $('followups').querySelectorAll('[data-fu]').forEach(el=>el.onclick=()=>openRole(el.dataset.fu))
   $('followups').querySelectorAll('[data-fu-draft]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); draftFollowupNote(el.dataset.fuDraft) })
@@ -2712,12 +3082,20 @@ async function openRole2(id){
   checkAtsLiveness(CURROLE)
   paintDealBreakers(CURROLE.jd||$('rp2_jd')?.value||'')
   try{ paintOutcomeUI(id) }catch(_e){}
+  try{ paintRoleContacts(id) }catch(_e){}
+  try{ paintSalaryCompare(id) }catch(_e){}
   // T20: interview prep when stage ≥ Interview (also Offer)
   try{
     const ix=STAGES.indexOf(CURROLE.stage)
     const iInterview=STAGES.indexOf('interview')
     const showIv = ix>=0 && iInterview>=0 && ix>=iInterview
     $('dw_interview_sec')?.classList.toggle('hidden', !showIv)
+    if(showIv){
+      const box=$('dw_interview_box')
+      if(box){ box.classList.add('hidden'); box.innerHTML='' }
+      paintInterviewRounds(id)
+      loadLatestInterviewPrep(id)
+    }
   }catch(_e){}
   LAST_EVAL=null
   if($('dw_eval')){ $('dw_eval').classList.add('hidden'); $('dw_eval').innerHTML='' }
@@ -3551,6 +3929,7 @@ function rp2VerNames(){
 function rp2SaveVerName(id, name){
   const m=rp2VerNames(); if(name) m[id]=name; else delete m[id]
   localStorage.setItem('rp2_ver_names', JSON.stringify(m))
+  persistVerDisplayName(id, name||null)
 }
 function rp2HumanVerName(r){
   const co=(CURROLE?.company||'').trim()||'Company'
@@ -3570,7 +3949,7 @@ function rp2SentArtifactName(r){
   return `${co} · sent · ${when} · ${kind}`
 }
 function rp2SentChipLabel(r){
-  const custom = r?.id ? rp2VerNames()[r.id] : ''
+  const custom = r?.id ? (rp2VerNames()[r.id]||r.display_name||'') : ''
   if(custom && /sent/i.test(custom)) return '✓ '+custom
   const co=(CURROLE?.company||'').trim()||'Company'
   const when=new Date().toLocaleString('en-US',{month:'short',day:'numeric'})
@@ -3592,7 +3971,7 @@ function rp2MarkVersionSent(id, on){
   return true
 }
 function rp2VerLabel(r, vnum, { latest=false }={}){
-  const custom=rp2VerNames()[r.id]
+  const custom=rp2VerNames()[r.id]||r.display_name
   const isPdf=r.kind==='jobscan'&&r.jd_text
   const name=custom || rp2HumanVerName(r)
   const sent = (r.kind==='resume'||r.kind==='cover') && isVerSent(r.id)
@@ -3666,22 +4045,26 @@ function rp2BindVers(root){
     if(error){ $('rp2_err').textContent=error.message; return }
     rp2LoadVers(CURROLE.id) })
   root.querySelectorAll('[data-v2rename]').forEach(b=>b.onclick=()=>{
-    const id=+b.dataset.v2rename, r=RP2ROWS.find(x=>x.id==id); if(!r) return
-    const cur=rp2VerNames()[id]||''
+    const id=b.dataset.v2rename, r=RP2ROWS.find(x=>String(x.id)===String(id)); if(!r) return
+    const cur=rp2VerNames()[r.id]||r.display_name||''
     const next=prompt('Name this save (company + what it is works best):', cur || ((CURROLE?.company||'')+' '+(r.kind==='cover'?'cover':'resume')))
     if(next==null) return
-    rp2SaveVerName(id, next.trim()); rp2LoadVers(CURROLE.id)
+    rp2SaveVerName(r.id, next.trim()); rp2LoadVers(CURROLE.id)
   })
   root.querySelectorAll('[data-v2sent]').forEach(b=>b.onclick=()=>{
-    const id=+b.dataset.v2sent
-    const on=!isVerSent(id)
-    rp2MarkVersionSent(id, on)
+    const id=b.dataset.v2sent
+    const r=RP2ROWS.find(x=>String(x.id)===String(id)); if(!r) return
+    const on=!isVerSent(r.id)
+    rp2MarkVersionSent(r.id, on)
   })
 }
 async function rp2LoadVers(id){
   let data=null, loadErr=null
   try{
-    const res = await sb.from('mt_reports').select('id,kind,match_score,rewritten,jd_text,created_at').eq('role_id',id).order('created_at',{ascending:false})
+    let res = await sb.from('mt_reports').select('id,kind,match_score,rewritten,jd_text,created_at,display_name,sent_at').eq('role_id',id).order('created_at',{ascending:false})
+    if(res.error && /display_name|sent_at|column/i.test(res.error.message||'')){
+      res = await sb.from('mt_reports').select('id,kind,match_score,rewritten,jd_text,created_at').eq('role_id',id).order('created_at',{ascending:false})
+    }
     data=res.data; loadErr=res.error
   }catch(e){ loadErr=e }
   if(loadErr){
@@ -3690,6 +4073,7 @@ async function rp2LoadVers(id){
     return
   }
   RP2ROWS=data||[]
+  hydrateVersionMetaFromRows(RP2ROWS)
   const label={match:'Match check',resume:'Tailored resume',cover:'Cover letter',jobscan:'Jobscan report'}
   const rows=RP2ROWS.filter(r=>r.kind!=='selection')
   const asc=[...rows].reverse(), counts={}, vnum={}
@@ -3698,6 +4082,7 @@ async function rp2LoadVers(id){
   if(!rows.length){
     $('rp2_vers').innerHTML='<p class="muted" style="font-size:13px;margin:6px 0 0">Nothing saved yet — generate a draft above.</p>'
     $('rp2_tl').innerHTML=''
+    paintWhatShipped(id)
     return
   }
   const docs=rows.filter(r=>r.kind==='resume'||r.kind==='cover'||r.kind==='jobscan')
@@ -3731,6 +4116,25 @@ async function rp2LoadVers(id){
     .map(k=>`<span class="rp2-tlnode">${esc(k)}</span>`)
   $('rp2_tl').innerHTML = crumbs.join('<span class="muted" style="font-size:11px"> · </span>')
   rp2BindVers($('rp2_vers'))
+  paintWhatShipped(id)
+}
+function paintWhatShipped(roleId){
+  const id=roleId||CURROLE?.id
+  const timeline=buildVersionTimeline({
+    reports: RP2ROWS||[],
+    outcome: id ? loadOutcomes()[id] : null,
+    role: id ? (ROLESMAP[id]||CURROLE) : CURROLE,
+    displayNames: rp2VerNames(),
+    sentVerIds: sentVerStore(),
+  })
+  const lines=timelineLines(timeline)
+  const html = `<p class="ship-answer">${esc(timeline.summary.answer)}</p>`
+    +(lines.length
+      ? `<ol>${lines.map(l=>`<li><span class="ship-type">${esc(l.type)}</span><span class="muted">${esc(l.at)}</span> — ${esc(l.label)}</li>`).join('')}</ol>`
+      : `<p class="muted" style="margin:0">Run a match check or mark a version Sent to start this timeline.</p>`)
+  ;['dw_shipped','bv_shipped'].forEach(elId=>{
+    const el=$(elId); if(el) el.innerHTML=html
+  })
 }
 function rp2OpenEditor(id){
   const r=RP2ROWS.find(x=>x.id===id); if(!r) return
@@ -4922,6 +5326,10 @@ $('settingsbtn').onclick=()=>{
   $('s_locations').value=(PROFILE?.locations||[]).join(', ')
   $('s_resume').value=PROFILE?.resume_text||''
   if($('s_stories')) $('s_stories').value=loadStories()
+  if($('s_band_min')) $('s_band_min').value = PROFILE?.target_band_min != null ? PROFILE.target_band_min : ''
+  if($('s_band_max')) $('s_band_max').value = PROFILE?.target_band_max != null ? PROFILE.target_band_max : ''
+  if($('s_band_cur')) $('s_band_cur').value = PROFILE?.target_band_currency || 'USD'
+  paintContactsSettings()
   if($('s_blocklist')) $('s_blocklist').value=(FIND_PREFS.blocklist||[]).join(', ')
   if($('s_max_age')) $('s_max_age').value=FIND_PREFS.max_age_days||0
   if($('s_remote_pref')) $('s_remote_pref').value=FIND_PREFS.remote_pref||'any'
@@ -4976,18 +5384,156 @@ $('exp_boardpack')?.addEventListener('click', async ()=>{
   await loadAccomplishments(); await loadPortfolioRows()
   const p = prof&&prof[0] ? {...prof[0]} : null
   if(p){ delete p.ai_key; delete p.kimi_key; delete p.humanizer_pw; delete p.openai_key }
+  const verNames=rp2VerNames()
   const pack = buildBoardPack({
     profile: p,
-    roles: roles||[],
-    reports: reports||[],
+    roles: (roles||[]).map(r=>({
+      ...r,
+      sent_at: r.sent_at || (isSent(r.id) ? (r.updated_at || new Date().toISOString()) : null),
+    })),
+    reports: (reports||[]).map(r=>({
+      ...r,
+      display_name: r.display_name || verNames[r.id] || null,
+      sent_at: r.sent_at || (isVerSent(r.id) ? new Date().toISOString() : null),
+    })),
     accomplishments: MEM_ROWS||[],
     portfolio: PF_ROWS||[],
     stories: loadStories(),
     find_prefs: loadFindPrefs(),
-    outcomes: (()=>{ try{ return JSON.parse(localStorage.getItem('co_outcomes_'+(ME?.id||''))||'{}') }catch(_e){ return {} } })(),
+    outcomes: loadOutcomes(),
+    interview_events: IV_EVENTS.length ? IV_EVENTS : loadInterviewEventsLocal(),
+    contacts: CT_ROWS.length ? CT_ROWS : loadContactsLocal(),
   })
   download('CareerOps_board_pack.json', JSON.stringify(pack,null,2), 'application/json')
-  logEvent('export_board_pack', null, { roles:(roles||[]).length, materials:pack.materials.length, reports:pack.reports.length, accomplishments:(pack.accomplishments||[]).length })
+  logEvent('export_board_pack', null, { roles:(roles||[]).length, materials:pack.materials.length, reports:pack.reports.length, accomplishments:(pack.accomplishments||[]).length, interview_events:(pack.interview_events||[]).length, contacts:(pack.contacts||[]).length })
+})
+$('imp_boardpack')?.addEventListener('change', async (ev)=>{
+  const file=ev.target.files && ev.target.files[0]
+  ev.target.value=''
+  const status=$('imp_boardpack_status')
+  if(!file) return
+  try{
+    const text=await file.text()
+    const imported=importBoardPack(text)
+    if(imported.profile && (imported.profile.ai_key || imported.profile.openai_key || imported.profile.kimi_key)){
+      throw new Error('Pack contained keys — refusing import (sanitize failed)')
+    }
+    const [{data:roleIds},{data:repIds},{data:accIds},{data:pfIds},{data:ctIds}] = await Promise.all([
+      sb.from('mt_roles').select('id'),
+      sb.from('mt_reports').select('id'),
+      sb.from('mt_accomplishments').select('id'),
+      sb.from('mt_portfolio_items').select('id'),
+      sb.from('mt_contacts').select('id'),
+    ])
+    const plan=planBoardPackUpsert(imported, {
+      existingRoleIds: (roleIds||[]).map(r=>r.id),
+      existingReportIds: (repIds||[]).map(r=>r.id),
+      existingAccomplishmentIds: (accIds||[]).map(r=>r.id),
+      existingPortfolioIds: (pfIds||[]).map(r=>r.id),
+      existingContactIds: (ctIds||[]).map(r=>r.id),
+    })
+    const summary=`Import plan: roles ${plan.roles.upsert.length}↑/${plan.roles.insert.length}+, materials ${plan.materials.upsert.length}↑/${plan.materials.insert.length}+, memory ${plan.accomplishments.upsert.length}↑/${plan.accomplishments.insert.length}+, portfolio ${plan.portfolio.upsert.length}↑/${plan.portfolio.insert.length}+, contacts ${plan.contacts.upsert.length}↑/${plan.contacts.insert.length}+. Secrets imported: ${plan.secrets_imported}. Continue?`
+    if(!confirm(summary)){ if(status) status.textContent='Import cancelled.'; return }
+    if(status) status.textContent='Importing…'
+    for(const row of plan.roles.upsert){
+      const { id, ...patch } = row
+      let { error } = await sb.from('mt_roles').update(patch).eq('id', id)
+      if(error && /comp_range|comp_raw|column/i.test(error.message||'')){
+        delete patch.comp_range; delete patch.comp_raw
+        ;({ error } = await sb.from('mt_roles').update(patch).eq('id', id))
+      }
+      if(error) console.warn('[import] role upsert', error.message)
+    }
+    for(const row of plan.roles.insert){
+      let { error } = await sb.from('mt_roles').insert(row)
+      if(error && /comp_range|comp_raw|column/i.test(error.message||'')){
+        const { comp_range: _c, comp_raw: _r, ...rest } = row
+        ;({ error } = await sb.from('mt_roles').insert(rest))
+      }
+      if(error) console.warn('[import] role insert', error.message)
+    }
+    for(const row of [...plan.materials.upsert, ...plan.materials.insert]){
+      const { error } = await sb.from('mt_reports').upsert(row)
+      if(error) console.warn('[import] material', error.message)
+    }
+    for(const row of [...plan.accomplishments.upsert, ...plan.accomplishments.insert]){
+      const { error } = await sb.from('mt_accomplishments').upsert({ ...row, owner: ME.id })
+      if(error) console.warn('[import] accomplishment', error.message)
+    }
+    for(const row of [...plan.portfolio.upsert, ...plan.portfolio.insert]){
+      const { error } = await sb.from('mt_portfolio_items').upsert({ ...row, owner: ME.id })
+      if(error) console.warn('[import] portfolio', error.message)
+    }
+    for(const row of [...plan.contacts.upsert, ...plan.contacts.insert]){
+      const db=contactRowFromLocal(row, ME.id)
+      if(!db) continue
+      const { error } = await sb.from('mt_contacts').upsert(db)
+      if(error){
+        if(/mt_contacts|does not exist/i.test(error.message||'')) CT_DB_OK=false
+        else console.warn('[import] contact', error.message)
+        await upsertContact(row)
+      }
+    }
+    if(plan.profilePatch){
+      const patch={ ...plan.profilePatch }
+      delete patch.email // don't overwrite auth email casually from pack unless present
+      let { error } = await sb.from('mt_profiles').update(patch).eq('owner', ME.id)
+      if(error && /target_band_|column/i.test(error.message||'')){
+        delete patch.target_band_min; delete patch.target_band_max; delete patch.target_band_currency
+        ;({ error } = await sb.from('mt_profiles').update(patch).eq('owner', ME.id))
+      }
+      if(!error && PROFILE) Object.assign(PROFILE, patch)
+    }
+    if(plan.stories) saveStories(plan.stories)
+    if(plan.outcomes && typeof plan.outcomes==='object'){
+      for(const [rid, o] of Object.entries(plan.outcomes)){
+        if(o && o.kind) saveOutcome(rid, normalizeOutcome(o)||o)
+      }
+    }
+    if(Array.isArray(plan.interview_events) && plan.interview_events.length){
+      for(const ev of plan.interview_events) await upsertInterviewEvent(ev)
+    }
+    await loadContactsFromDb()
+    await load()
+    if(status) status.textContent='Import complete. Keys were never written.'
+    logEvent('import_board_pack', null, { roles: plan.roles.insert.length+plan.roles.upsert.length, secrets: false })
+  }catch(err){
+    if(status) status.textContent='Import failed: '+(err.message||err)
+  }
+})
+$('s_ct_add')?.addEventListener('click', async ()=>{
+  const name=($('s_ct_name')?.value||'').trim()
+  if(!name) return
+  await upsertContact({
+    id: 'local-'+Date.now(),
+    name,
+    channel: $('s_ct_channel')?.value||'email',
+    company: ($('s_ct_company')?.value||'').trim(),
+    notes: ($('s_ct_notes')?.value||'').trim(),
+    role_ids: [],
+  })
+  if($('s_ct_name')) $('s_ct_name').value=''
+  if($('s_ct_notes')) $('s_ct_notes').value=''
+  paintContactsSettings()
+  logEvent('contact_add', null, {})
+})
+$('s_ct_filter')?.addEventListener('input', ()=> paintContactsSettings())
+$('dw_ct_add')?.addEventListener('click', async ()=>{
+  if(!CURROLE) return
+  const name=($('dw_ct_name')?.value||'').trim()
+  if(!name) return
+  await upsertContact({
+    id: 'local-'+Date.now(),
+    name,
+    channel: $('dw_ct_channel')?.value||'email',
+    company: CURROLE.company||'',
+    role_ids: [CURROLE.id],
+    notes: '',
+  })
+  if($('dw_ct_name')) $('dw_ct_name').value=''
+  paintRoleContacts(CURROLE.id)
+  paintContactsSettings()
+  logEvent('contact_add', CURROLE.id, {})
 })
 $('s_save').onclick = async ()=>{
   $('seterr').textContent=''
@@ -5007,6 +5553,10 @@ $('s_save').onclick = async ()=>{
   })
   const upd={ target_titles:list($('s_titles').value), keywords:list($('s_keywords').value),
     seniority:list($('s_seniority').value.toLowerCase()), locations:list($('s_locations').value), resume_text:$('s_resume').value }
+  const band=parseBandInput($('s_band_min')?.value, $('s_band_max')?.value)
+  upd.target_band_min = band.min
+  upd.target_band_max = band.max
+  upd.target_band_currency = ($('s_band_cur')?.value||'USD').trim().toUpperCase().slice(0,3) || 'USD'
   if($('s_cadence')) upd.bullet_memory_cadence=$('s_cadence').value||'off'
   if($('s_cadence_anchor')) upd.cadence_anchor=($('s_cadence_anchor').value||'1,15').trim()
   if($('s_cadence_tz')) upd.cadence_timezone=($('s_cadence_tz').value||'UTC').trim()
@@ -5016,6 +5566,19 @@ $('s_save').onclick = async ()=>{
   if(he) upd.humanizer_email=he; else if(PROFILE?.humanizer_email && he==='') upd.humanizer_email=null
   if(hp) upd.humanizer_pw=hp
   let { error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id)
+  if(error && /target_band_|bullet_memory_cadence|cadence_timezone|cadence_anchor|column/i.test(error.message||'')){
+    if(PROFILE){
+      PROFILE.bullet_memory_cadence=upd.bullet_memory_cadence
+      PROFILE.cadence_anchor=upd.cadence_anchor
+      PROFILE.cadence_timezone=upd.cadence_timezone
+      PROFILE.target_band_min=upd.target_band_min
+      PROFILE.target_band_max=upd.target_band_max
+      PROFILE.target_band_currency=upd.target_band_currency
+    }
+    delete upd.bullet_memory_cadence; delete upd.cadence_anchor; delete upd.cadence_timezone
+    delete upd.target_band_min; delete upd.target_band_max; delete upd.target_band_currency
+    ;({ error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id))
+  }
   if(error && /bullet_memory_cadence|cadence_timezone|cadence_anchor|column/i.test(error.message||'')){
     // Phase 1 migration not applied yet — keep core settings working
     if(PROFILE){
@@ -5304,17 +5867,6 @@ async function materialsOnlyDraft(kind){
   if(data?.error) throw new Error(data.error=== 'free_limit'?FREE_LIMIT_MSG:data.error)
   return (data?.reply||data?.message||data?.content||'').trim()
 }
-function paintCopyBox(el, title, text){
-  if(!el) return
-  el.classList.remove('hidden')
-  el.innerHTML='<h4>'+esc(title)+'</h4><div style="white-space:pre-wrap;margin:0 0 8px">'+esc(text||'')+'</div>'
-    +'<button type="button" class="btn sm" data-copy="1">Copy</button>'
-    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Copy only — CareerOps never submits forms or sends email.</p>'
-  el.querySelector('[data-copy]')?.addEventListener('click', async ()=>{
-    try{ await navigator.clipboard.writeText(text||''); el.querySelector('[data-copy]').textContent='Copied ✓' }
-    catch(_e){ prompt('Copy this text:', text||'') }
-  })
-}
 document.querySelectorAll('[data-ans]').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     if(!CURROLE) return
@@ -5323,7 +5875,7 @@ document.querySelectorAll('[data-ans]').forEach(btn=>{
     const o=btn.textContent; btn.disabled=true
     try{
       const text=await materialsOnlyDraft(kind)
-      paintCopyBox(box, 'Draft — '+kind, text)
+      paintCopyBox(box, 'Draft — '+kind, text, { kind, roleId: CURROLE.id })
       logEvent('form_answer_draft', CURROLE.id, { kind })
     }catch(err){ box.innerHTML='<p class="err">'+esc(await fnMsg(err))+'</p>' }
     finally{ btn.disabled=false; btn.textContent=o }
@@ -5336,11 +5888,216 @@ $('dw_interview_btn')?.addEventListener('click', async ()=>{
   box.classList.remove('hidden'); box.innerHTML='<p class="muted" style="margin:0">Building interview angles…</p>'
   try{
     const text=await materialsOnlyDraft('interview')
-    paintCopyBox(box, 'Interview prep', text)
+    paintCopyBox(box, 'Interview prep', text, { kind: 'interview', roleId: CURROLE.id })
+    await persistInterviewReport(CURROLE.id, text)
     logEvent('interview_prep', CURROLE.id, {})
   }catch(err){ box.innerHTML='<p class="err">'+esc(await fnMsg(err))+'</p>' }
   finally{ b.disabled=false; b.textContent=o }
 })
+$('dw_iv_add')?.addEventListener('click', async ()=>{
+  if(!CURROLE) return
+  const round = nextRoundNumber(IV_EVENTS, CURROLE.id)
+  const draft = {
+    id: 'local-'+Date.now(),
+    role_id: CURROLE.id,
+    round,
+    type: 'screen',
+    scheduled_at: null,
+    notes: '',
+    interviewer_name: null,
+  }
+  IV_EVENTS = saveInterviewEventsLocal([...(IV_EVENTS||[]), draft])
+  paintInterviewRounds(CURROLE.id)
+  await upsertInterviewEvent(draft)
+  logEvent('interview_round_add', CURROLE.id, { round })
+})
+function paintInterviewRounds(roleId){
+  const root=$('dw_iv_rounds'); if(!root) return
+  const list=eventsForRole(IV_EVENTS.length?IV_EVENTS:loadInterviewEventsLocal(), roleId)
+  if(!list.length){
+    root.innerHTML='<p class="muted" style="margin:0">No rounds yet. Add a screen, onsite, or loop when you schedule one.</p>'
+    return
+  }
+  const typeOpts=INTERVIEW_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')
+  root.innerHTML=list.map(ev=>{
+    const when = ev.scheduled_at ? ev.scheduled_at.slice(0,16) : ''
+    return `<div class="iv-round" data-iv-id="${esc(String(ev.id))}">
+      <div class="iv-meta"><label>Round</label><input type="number" min="1" data-iv-f="round" value="${ev.round||1}"></div>
+      <div class="iv-meta"><label>Type</label><select data-iv-f="type">${typeOpts}</select></div>
+      <div class="iv-meta" style="flex:1 1 180px"><label>When</label><input type="datetime-local" data-iv-f="scheduled_at" value="${esc(when)}"></div>
+      <div class="iv-meta" style="flex:1 1 160px"><label>Interviewer (optional)</label><input type="text" data-iv-f="interviewer_name" value="${esc(ev.interviewer_name||'')}" placeholder="Name"></div>
+      <div class="iv-meta" style="flex:1 1 100%"><label>Notes</label><textarea data-iv-f="notes" placeholder="Topics, logistics…">${esc(ev.notes||'')}</textarea></div>
+      <div class="iv-actions">
+        <button type="button" class="btn sm" data-iv-save="1">Save round</button>
+        <button type="button" class="btn sm ghost" data-iv-del="1">Delete</button>
+      </div>
+    </div>`
+  }).join('')
+  root.querySelectorAll('.iv-round').forEach(row=>{
+    const id=row.dataset.ivId
+    const sel=row.querySelector('[data-iv-f="type"]')
+    const cur=list.find(x=>String(x.id)===String(id))
+    if(sel && cur) sel.value=cur.type||'screen'
+    row.querySelector('[data-iv-save]')?.addEventListener('click', async ()=>{
+      const patch=readIvRoundForm(row, id, roleId)
+      await upsertInterviewEvent(patch)
+      paintInterviewRounds(roleId)
+      refreshFollowupStrip()
+      logEvent('interview_round_save', roleId, { round: patch.round, type: patch.type })
+    })
+    row.querySelector('[data-iv-del]')?.addEventListener('click', async ()=>{
+      if(!confirm('Delete this interview round?')) return
+      await deleteInterviewEvent(id, roleId)
+      paintInterviewRounds(roleId)
+      refreshFollowupStrip()
+      logEvent('interview_round_delete', roleId, {})
+    })
+  })
+}
+function readIvRoundForm(row, id, roleId){
+  const g=f=>row.querySelector(`[data-iv-f="${f}"]`)?.value
+  const scheduledRaw=(g('scheduled_at')||'').trim()
+  let scheduled_at=null
+  if(scheduledRaw){
+    const d=new Date(scheduledRaw)
+    scheduled_at = Number.isNaN(d.getTime()) ? null : d.toISOString()
+  }
+  return normalizeInterviewEvent({
+    id,
+    role_id: roleId,
+    round: g('round'),
+    type: g('type'),
+    scheduled_at,
+    interviewer_name: g('interviewer_name'),
+    notes: g('notes'),
+  })
+}
+function refreshFollowupStrip(){
+  const roles=Object.values(ROLESMAP||{})
+  const fu = buildFollowupStrip(
+    roles.filter(r=>r.stage==='applied'||r.stage==='interview'||r.stage==='offer'),
+    IV_EVENTS.length ? IV_EVENTS : loadInterviewEventsLocal()
+  )
+  const el=$('followups'); if(!el) return
+  el.classList.toggle('hidden', !fu.length)
+  el.innerHTML = fu.length ? '<span class="fu-label">⏰ FOLLOW-UPS DUE</span><div class="fu-row">'+fu.map(f=>{
+    const when = f.labelKind==='upcoming'
+      ? ((f.event?.type||'interview')+' · '+f.due.toISOString().slice(0,10))
+      : (f.overdue?'follow up now':'by '+f.due.toISOString().slice(0,10))
+    const label=`${f.role.company||'—'} — ${f.role.title||''} · ${when}`
+    return `<span class="fu-chip${f.overdue?' overdue':''}" title="${esc(label)}"><span class="fu-txt" data-fu="${f.role.id}">${esc(label)}</span><span class="fu-actions"><button type="button" data-fu-draft="${f.role.id}" title="Draft a follow-up note — never sends">Draft follow-up note</button></span></span>`
+  }).join('')+'</div>' : ''
+  el.querySelectorAll('[data-fu]').forEach(n=>n.onclick=()=>openRole(n.dataset.fu))
+  el.querySelectorAll('[data-fu-draft]').forEach(n=>n.onclick=e=>{ e.stopPropagation(); draftFollowupNote(n.dataset.fuDraft) })
+}
+async function upsertInterviewEvent(ev){
+  const n=normalizeInterviewEvent(ev)
+  if(!n||!n.role_id) return null
+  let list=IV_EVENTS.length?IV_EVENTS.slice():loadInterviewEventsLocal()
+  const idx=list.findIndex(x=>String(x.id)===String(n.id))
+  if(idx>=0) list[idx]={...list[idx],...n}
+  else list.push(n)
+  saveInterviewEventsLocal(list)
+  if(!ME?.id || !IV_DB_OK) return n
+  try{
+    const row=interviewEventRowFromLocal(n, ME.id)
+    if(!row) return n
+    if(n.id && !String(n.id).startsWith('local-')){
+      const { data, error } = await sb.from('mt_interview_events').upsert(row).select('*').maybeSingle()
+      if(error){
+        if(/mt_interview_events|does not exist|relation|schema cache/i.test(error.message||'')) IV_DB_OK=false
+        else console.warn('[interview] upsert', error.message)
+        return n
+      }
+      if(data){
+        list = list.map(x=>String(x.id)===String(n.id) ? normalizeInterviewEvent(data) : x)
+        saveInterviewEventsLocal(list)
+        return normalizeInterviewEvent(data)
+      }
+    } else {
+      const { id: _drop, ...insertRow } = row
+      const { data, error } = await sb.from('mt_interview_events').insert(insertRow).select('*').maybeSingle()
+      if(error){
+        if(/mt_interview_events|does not exist|relation|schema cache/i.test(error.message||'')) IV_DB_OK=false
+        else console.warn('[interview] insert', error.message)
+        return n
+      }
+      if(data){
+        list = list.map(x=>String(x.id)===String(n.id) ? normalizeInterviewEvent(data) : x)
+        saveInterviewEventsLocal(list)
+        return normalizeInterviewEvent(data)
+      }
+    }
+  }catch(_e){ IV_DB_OK=false }
+  return n
+}
+async function deleteInterviewEvent(id, roleId){
+  let list=(IV_EVENTS.length?IV_EVENTS:loadInterviewEventsLocal()).filter(x=>String(x.id)!==String(id))
+  saveInterviewEventsLocal(list)
+  if(!ME?.id || !IV_DB_OK || !id || String(id).startsWith('local-')) return
+  try{
+    const { error } = await sb.from('mt_interview_events').delete().eq('id', id)
+    if(error && /mt_interview_events|does not exist|relation/i.test(error.message||'')) IV_DB_OK=false
+    else if(error) console.warn('[interview] delete', error.message)
+  }catch(_e){ IV_DB_OK=false }
+}
+async function persistInterviewReport(roleId, text){
+  const row=interviewReportRow({ roleId, text, owner: ME?.id })
+  if(!row) return
+  try{
+    const { error } = await sb.from('mt_reports').insert(row)
+    if(error) console.warn('[interview] report save', error.message)
+    else if(CURROLE && String(CURROLE.id)===String(roleId)){
+      // reload latest prep into box history hint
+      const box=$('dw_interview_box')
+      if(box && !box.querySelector('[data-iv-saved]')){
+        const note=document.createElement('p')
+        note.className='muted'
+        note.dataset.ivSaved='1'
+        note.style.cssText='margin:8px 0 0;font-size:12px'
+        note.textContent='Saved to history (interview report) — recoverable after refresh.'
+        box.appendChild(note)
+      }
+    }
+  }catch(e){ console.warn('[interview] report save', e?.message||e) }
+}
+async function loadLatestInterviewPrep(roleId){
+  if(!roleId) return
+  try{
+    const { data, error } = await sb.from('mt_reports').select('rewritten,created_at').eq('role_id',roleId).eq('kind','interview').order('created_at',{ascending:false}).limit(1)
+    if(error || !data || !data[0]?.rewritten) return
+    const box=$('dw_interview_box')
+    if(box && box.classList.contains('hidden')){
+      paintCopyBox(box, 'Interview prep (saved)', data[0].rewritten)
+      const note=document.createElement('p')
+      note.className='muted'
+      note.style.cssText='margin:8px 0 0;font-size:12px'
+      note.textContent='Recovered from history · '+(data[0].created_at||'').slice(0,10)
+      box.appendChild(note)
+    }
+  }catch(_e){}
+}
+async function syncInterviewEventsFromDb(){
+  if(!ME?.id){ IV_EVENTS=loadInterviewEventsLocal(); return }
+  try{
+    const { data, error } = await sb.from('mt_interview_events').select('*').eq('owner', ME.id).order('scheduled_at',{ascending:true})
+    if(error){
+      if(/mt_interview_events|does not exist|relation|schema cache/i.test(error.message||'')) IV_DB_OK=false
+      else console.warn('[interview] load', error.message)
+      IV_EVENTS=loadInterviewEventsLocal()
+      return
+    }
+    IV_DB_OK=true
+    const remote=(data||[]).map(normalizeInterviewEvent).filter(Boolean)
+    // Prefer remote; keep local-only drafts not yet pushed
+    const remoteIds=new Set(remote.map(e=>String(e.id)))
+    const localOnly=loadInterviewEventsLocal().filter(e=>String(e.id||'').startsWith('local-') && !remoteIds.has(String(e.id)))
+    saveInterviewEventsLocal([...remote, ...localOnly])
+  }catch(_e){
+    IV_DB_OK=false
+    IV_EVENTS=loadInterviewEventsLocal()
+  }
+}
 $('dw_research_btn')?.addEventListener('click', async ()=>{
   if(!CURROLE) return
   const box=$('dw_research_box'); const b=$('dw_research_btn')
@@ -5348,7 +6105,7 @@ $('dw_research_btn')?.addEventListener('click', async ()=>{
   box.classList.remove('hidden'); box.innerHTML='<p class="muted" style="margin:0">Drafting research + outreach…</p>'
   try{
     const text=await materialsOnlyDraft('research')
-    paintCopyBox(box, 'Research & outreach', text)
+    paintCopyBox(box, 'Research & outreach', text, { kind: 'outreach', roleId: CURROLE.id })
     logEvent('research_outreach', CURROLE.id, {})
   }catch(err){ box.innerHTML='<p class="err">'+esc(await fnMsg(err))+'</p>' }
   finally{ b.disabled=false; b.textContent=o }
@@ -5358,19 +6115,114 @@ function paintOutcomeUI(roleId){
   if($('dw_outcome_kind')) $('dw_outcome_kind').value=o?.kind||''
   if($('dw_outcome_date')) $('dw_outcome_date').value=o?.date||''
   if($('dw_outcome_note')) $('dw_outcome_note').value=o?.note||''
+  const showOffer = ($('dw_outcome_kind')?.value||'')==='offer'
+  $('dw_offer_fields')?.classList.toggle('hidden', !showOffer)
+  if($('dw_offer_base')) $('dw_offer_base').value = o?.base!=null ? String(o.base) : ''
+  if($('dw_offer_bonus')) $('dw_offer_bonus').value = o?.bonus!=null ? String(o.bonus) : ''
+  if($('dw_offer_currency')) $('dw_offer_currency').value = o?.currency || 'USD'
+  if($('dw_offer_remote')) $('dw_offer_remote').value = o?.remote || ''
+  if($('dw_offer_deadline')) $('dw_offer_deadline').value = o?.deadline || ''
+  if($('dw_offer_equity')) $('dw_offer_equity').value = o?.equity_notes || ''
   const view=$('dw_outcome_view')
   if(!view) return
-  if(!o?.kind){ view.classList.add('hidden'); view.innerHTML=''; return }
+  if(!o?.kind){ view.classList.add('hidden'); view.innerHTML=''; paintOfferCompare(roleId); return }
   view.classList.remove('hidden')
-  view.innerHTML='<b>'+esc(o.kind)+'</b>'+(o.date?' · '+esc(o.date):'')+(o.note?'<div style="margin-top:6px;white-space:pre-wrap">'+esc(o.note)+'</div>':'')
+  let bits=`<b>${esc(o.kind)}</b>`+(o.date?' · '+esc(o.date):'')
+  if(o.kind==='offer'){
+    const cur=o.currency||'USD'
+    if(o.base!=null) bits+=` · base ${esc(formatMoney(o.base, cur))}`
+    if(o.bonus!=null) bits+=` · bonus ${esc(formatMoney(o.bonus, cur))}`
+    if(o.remote) bits+=` · ${esc(o.remote)}`
+    if(o.deadline) bits+=` · deadline ${esc(o.deadline)}`
+    if(o.equity_notes) bits+=`<div style="margin-top:6px;white-space:pre-wrap"><b>Equity:</b> ${esc(o.equity_notes)}</div>`
+  }
+  if(o.note) bits+=`<div style="margin-top:6px;white-space:pre-wrap">${esc(o.note)}</div>`
+  view.innerHTML=bits
+  paintOfferCompare(roleId)
 }
+function toggleOfferFieldsVisibility(){
+  const kind=$('dw_outcome_kind')?.value||''
+  $('dw_offer_fields')?.classList.toggle('hidden', kind!=='offer')
+}
+function paintOfferCompare(preferRoleId){
+  const root=$('dw_offer_compare'); if(!root) return
+  const outcomes=loadOutcomes()
+  const offerRoles=Object.entries(outcomes)
+    .filter(([,o])=>o?.kind==='offer')
+    .map(([id,o])=>{
+      const r=ROLESMAP[id]||{}
+      return { roleId:id, company:r.company||'—', title:r.title||'', outcome:o }
+    })
+  if(offerRoles.length < 2){
+    root.innerHTML='<p class="muted" style="margin:0">Save Offer outcomes on at least two roles to compare.</p>'
+    return
+  }
+  // Default: prefer current role + up to 2 other offers
+  const selected = (()=>{
+    const ids=[]
+    if(preferRoleId && offerRoles.some(x=>x.roleId===preferRoleId)) ids.push(preferRoleId)
+    for(const x of offerRoles){
+      if(ids.includes(x.roleId)) continue
+      ids.push(x.roleId)
+      if(ids.length>=3) break
+    }
+    return ids
+  })()
+  const picks=offerRoles.map(x=>{
+    const on=selected.includes(x.roleId)
+    return `<label><input type="checkbox" data-oc-id="${esc(x.roleId)}" ${on?'checked':''}> ${esc(x.company)} — ${esc(x.title||'role')}</label>`
+  }).join('')
+  const refresh=()=>{
+    const checked=[...root.querySelectorAll('[data-oc-id]:checked')].map(el=>el.dataset.ocId).slice(0,3)
+    const entries=checked.map(id=>{
+      const r=ROLESMAP[id]||{}
+      return { roleId:id, company:r.company||'—', title:r.title||'', outcome:outcomes[id] }
+    })
+    const cmp=buildOfferCompare(entries)
+    let table=''
+    if(cmp.empty){
+      table='<p class="muted" style="margin:8px 0 0">Select 2–3 offers above.</p>'
+    } else {
+      table='<table><thead><tr><th></th>'+cmp.columns.map(c=>`<th>${esc(c.company)}</th>`).join('')+'</tr></thead><tbody>'
+        +cmp.rows.map(row=>`<tr><th scope="row">${esc(row.label)}</th>`+row.values.map(v=>`<td>${esc(String(v))}</td>`).join('')+'</tr>').join('')
+        +'</tbody></table>'
+    }
+    const pickEl=root.querySelector('.oc-pick')
+    const tableHost=root.querySelector('.oc-table')
+    if(tableHost) tableHost.innerHTML=table
+    else root.innerHTML=`<div class="oc-pick">${picks}</div><div class="oc-table">${table}</div>`
+    root.querySelectorAll('[data-oc-id]').forEach(el=>{
+      el.onchange=()=>{
+        const all=[...root.querySelectorAll('[data-oc-id]:checked')]
+        if(all.length>3){ el.checked=false; return }
+        refresh()
+      }
+    })
+  }
+  root.innerHTML=`<div class="oc-pick">${picks}</div><div class="oc-table"></div>`
+  refresh()
+}
+$('dw_outcome_kind')?.addEventListener('change', ()=>toggleOfferFieldsVisibility())
 $('dw_outcome_save')?.addEventListener('click', ()=>{
   if(!CURROLE) return
   const kind=$('dw_outcome_kind')?.value||''
   const date=$('dw_outcome_date')?.value||''
   const note=($('dw_outcome_note')?.value||'').trim()
-  saveOutcome(CURROLE.id, kind?{ kind, date, note, at:new Date().toISOString() }:null)
+  let payload=null
+  if(kind){
+    payload={ kind, date, note, at:new Date().toISOString() }
+    if(kind==='offer'){
+      payload.base=parseMoneyInput($('dw_offer_base')?.value)
+      payload.bonus=parseMoneyInput($('dw_offer_bonus')?.value)
+      payload.currency=($('dw_offer_currency')?.value||'USD').trim()||'USD'
+      payload.remote=($('dw_offer_remote')?.value||'').trim()
+      payload.deadline=($('dw_offer_deadline')?.value||'').trim()
+      payload.equity_notes=($('dw_offer_equity')?.value||'').trim()
+    }
+  }
+  saveOutcome(CURROLE.id, payload)
   paintOutcomeUI(CURROLE.id)
+  paintWhatShipped(CURROLE.id)
   logEvent('outcome_saved', CURROLE.id, { kind:kind||null })
 })
 async function draftFollowupNote(roleId){
@@ -5590,6 +6442,194 @@ $('triage_empty_closed')?.addEventListener('click', async ()=>{
   try{ await emptyClosedRoles() }
   finally{ if(b){ b.disabled=false; b.textContent=o||'Empty Closed' } }
 })
+
+// ==== Career OS durability: outcomes / stories / Sent (DB + local fallback) ====
+async function syncDurabilityFromDb({ roles=[], reports=[] }={}){
+  if(!ME?.id) return
+  const local = readLocalCareerTruth(localStorage, ME.id)
+  try{
+    let outcomeRows=[]
+    const outRes = await sb.from('mt_outcomes').select('*').eq('owner', ME.id)
+    if(outRes.error){
+      if(!/mt_outcomes|does not exist|schema cache|relation/i.test(outRes.error.message||'')) throw outRes.error
+      // migration not applied yet — keep local
+      DURABILITY_DB_OK=false
+      return
+    }
+    outcomeRows=outRes.data||[]
+
+    // Prefer report meta with display_name/sent_at when columns exist
+    let reportMeta=reports
+    try{
+      const metaRes = await sb.from('mt_reports').select('id,display_name,sent_at')
+      if(!metaRes.error) reportMeta=metaRes.data||[]
+    }catch(_e){}
+
+    const remote = remoteCareerTruthFromDb({
+      story_bank: PROFILE && Object.prototype.hasOwnProperty.call(PROFILE,'story_bank') ? (PROFILE.story_bank||'') : '',
+      outcomeRows,
+      roles,
+      reports: reportMeta,
+    })
+
+    let truth
+    if(!isDurabilityMigrated(localStorage, ME.id)){
+      const plan = planDurabilityMigrate({ local, remote })
+      if(plan.hasWork) await applyDurabilityMigratePlan(plan)
+      truth = applyRemoteAuthoritative({
+        stories: plan.story_bank != null ? plan.story_bank : (remote.stories || local.stories || ''),
+        outcomes: { ...(local.outcomes||{}), ...(remote.outcomes||{}) },
+        sentRoles: { ...(local.sentRoles||{}), ...(remote.sentRoles||{}) },
+        sentVers: { ...(local.sentVers||{}), ...(remote.sentVers||{}) },
+        verNames: { ...(local.verNames||{}), ...(remote.verNames||{}) },
+      })
+      // overlay planned upserts as committed
+      for(const row of plan.outcomeUpserts||[]){
+        const n=normalizeOutcome({
+          kind:row.kind, date:row.outcome_date, note:row.note, at:row.recorded_at,
+          base:row.base_amount, bonus:row.bonus_amount, equity_notes:row.equity_notes,
+          remote:row.remote, deadline:row.offer_deadline, currency:row.currency,
+        })
+        if(n) truth.outcomes[row.role_id]=n
+      }
+      for(const r of plan.roleSentUpserts||[]) truth.sentRoles[r.role_id]=1
+      for(const v of plan.versionMetaUpserts||[]){
+        if(v.sent_at) truth.sentVers[v.id]=1
+        if(v.display_name) truth.verNames[v.id]=v.display_name
+      }
+      markDurabilityMigrated(localStorage, ME.id)
+      logEvent('durability_migrated', null, {
+        outcomes: (plan.outcomeUpserts||[]).length,
+        role_sent: (plan.roleSentUpserts||[]).length,
+        versions: (plan.versionMetaUpserts||[]).length,
+        stories: plan.story_bank!=null,
+      })
+    } else {
+      truth = applyRemoteAuthoritative(remote)
+    }
+
+    writeLocalCareerTruth(localStorage, ME.id, truth)
+    if(PROFILE) PROFILE.story_bank = truth.stories || ''
+    DURABILITY_DB_OK=true
+  }catch(e){
+    console.warn('[durability]', e?.message||e)
+    DURABILITY_DB_OK=false
+  }
+}
+
+async function applyDurabilityMigratePlan(plan){
+  if(!ME?.id || !plan) return
+  if(plan.story_bank != null){
+    const { error } = await sb.from('mt_profiles').update({ story_bank: plan.story_bank }).eq('owner', ME.id)
+    if(error && /story_bank|column/i.test(error.message||'')) { /* column missing */ }
+    else if(error) console.warn('[durability] story migrate', error.message)
+    else if(PROFILE) PROFILE.story_bank = plan.story_bank
+  }
+  for(const row of plan.outcomeUpserts||[]){
+    const payload = { ...row, owner: ME.id }
+    const { error } = await sb.from('mt_outcomes').upsert(payload, { onConflict: 'owner,role_id' })
+    if(error) console.warn('[durability] outcome migrate', error.message)
+  }
+  for(const r of plan.roleSentUpserts||[]){
+    const { error } = await sb.from('mt_roles').update({ sent_at: r.sent_at }).eq('id', r.role_id)
+    if(error) console.warn('[durability] role sent migrate', error.message)
+  }
+  for(const v of plan.versionMetaUpserts||[]){
+    const patch={}
+    if(v.sent_at) patch.sent_at=v.sent_at
+    if(v.display_name) patch.display_name=v.display_name
+    if(!Object.keys(patch).length) continue
+    const { error } = await sb.from('mt_reports').update(patch).eq('id', v.id)
+    if(error) console.warn('[durability] version meta migrate', error.message)
+  }
+}
+
+function hydrateVersionMetaFromRows(rows){
+  if(!rows||!rows.length) return
+  const names=rp2VerNames()
+  const sent=sentVerStore()
+  let dirty=false
+  for(const r of rows){
+    if(r.display_name && !names[r.id]){ names[r.id]=r.display_name; dirty=true }
+    if(r.sent_at && !sent[r.id]){ sent[r.id]=1; dirty=true }
+  }
+  if(dirty){
+    localStorage.setItem('rp2_ver_names', JSON.stringify(names))
+    localStorage.setItem('co_sent_ver', JSON.stringify(sent))
+  }
+}
+
+async function persistStoryBank(text){
+  if(!ME?.id || !DURABILITY_DB_OK) return
+  try{
+    const { error } = await sb.from('mt_profiles').update({ story_bank: String(text||'') }).eq('owner', ME.id)
+    if(error){
+      if(/story_bank|column/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else console.warn('[durability] story save', error.message)
+    }
+  }catch(_e){ DURABILITY_DB_OK=false }
+}
+
+async function persistOutcome(roleId, o){
+  if(!ME?.id || !DURABILITY_DB_OK || !roleId) return
+  try{
+    if(!o||!o.kind){
+      const { error } = await sb.from('mt_outcomes').delete().eq('owner', ME.id).eq('role_id', roleId)
+      if(error && /mt_outcomes|does not exist|relation/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else if(error) console.warn('[durability] outcome delete', error.message)
+      return
+    }
+    const row = outcomeRowFromLocal(roleId, o, ME.id)
+    if(!row) return
+    const { error } = await sb.from('mt_outcomes').upsert(row, { onConflict: 'owner,role_id' })
+    if(error){
+      if(/mt_outcomes|does not exist|relation|column/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else console.warn('[durability] outcome save', error.message)
+    }
+  }catch(_e){ DURABILITY_DB_OK=false }
+}
+
+async function persistRoleSent(roleId, on){
+  if(!ME?.id || !DURABILITY_DB_OK || !roleId) return
+  try{
+    const { error } = await sb.from('mt_roles').update({ sent_at: on ? new Date().toISOString() : null }).eq('id', roleId)
+    if(error){
+      if(/sent_at|column/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else console.warn('[durability] role sent', error.message)
+    } else if(ROLESMAP[roleId]){
+      ROLESMAP[roleId].sent_at = on ? new Date().toISOString() : null
+    }
+  }catch(_e){ DURABILITY_DB_OK=false }
+}
+
+async function persistVerSent(verId, on){
+  if(!ME?.id || !DURABILITY_DB_OK || !verId) return
+  try{
+    const patch={ sent_at: on ? new Date().toISOString() : null }
+    const { error } = await sb.from('mt_reports').update(patch).eq('id', verId)
+    if(error){
+      if(/sent_at|column/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else console.warn('[durability] ver sent', error.message)
+    } else {
+      const row=(RP2ROWS||[]).find(x=>String(x.id)===String(verId))
+      if(row) row.sent_at = patch.sent_at
+    }
+  }catch(_e){ DURABILITY_DB_OK=false }
+}
+
+async function persistVerDisplayName(verId, name){
+  if(!ME?.id || !DURABILITY_DB_OK || !verId) return
+  try{
+    const { error } = await sb.from('mt_reports').update({ display_name: name||null }).eq('id', verId)
+    if(error){
+      if(/display_name|column/i.test(error.message||'')) DURABILITY_DB_OK=false
+      else console.warn('[durability] ver name', error.message)
+    } else {
+      const row=(RP2ROWS||[]).find(x=>String(x.id)===String(verId))
+      if(row) row.display_name = name||null
+    }
+  }catch(_e){ DURABILITY_DB_OK=false }
+}
 
 // ==== Career OS Phase 1: bullet memory / portfolio / advisor / cadence ====
 let MEM_ROWS=[], PF_ROWS=[], MEM_POLISH_ID=null, MEM_DB_OK=true, PF_DB_OK=true
@@ -5847,6 +6887,61 @@ async function openMemoryModal(){
 }
 $('memorybtn')?.addEventListener('click', ()=>openMemoryModal())
 $('mem_close')?.addEventListener('click', ()=>$('memoryModal').classList.add('hidden'))
+$('mem_enrich_propose')?.addEventListener('click', async ()=>{
+  const url=($('mem_enrich_url')?.value||'').trim()
+  const paste=($('mem_enrich_paste')?.value||'').trim()
+  const preview=$('mem_enrich_preview')
+  if(!preview) return
+  preview.classList.remove('hidden')
+  preview.innerHTML='<p class="muted" style="margin:0">Proposing inbox candidates…</p>'
+  try{
+    const classified=classifyEnrichUrl(url)
+    if(!classified){
+      preview.innerHTML='<p class="err" style="margin:0">Unsupported URL — use github.com/… or linkedin.com/in|jobs/…</p>'
+      return
+    }
+    let meta=null
+    if(classified.kind.startsWith('github')){
+      meta=await fetchPublicEnrichMeta(classified)
+    }
+    const result=proposeEnrichCandidates({ url, pastedText: paste, fetchMeta: meta })
+    if(!result.ok || !result.candidates.length){
+      preview.innerHTML='<p class="err" style="margin:0">'+(result.error||'No candidates')+'</p>'
+      return
+    }
+    ENRICH_PENDING=result.candidates
+    preview.innerHTML=`<p class="muted" style="margin:0 0 8px;font-size:12px">${esc(result.doctrine)}</p>`
+      + result.candidates.map((c,i)=>{
+        const body=c.type==='portfolio'
+          ? (c.item.summary||c.item.body_current||c.item.title)
+          : (c.item.body_current||'')
+        return `<div style="margin:8px 0;padding:8px;border:1px solid var(--hair);border-radius:10px">
+          <div class="muted" style="font-size:11px">${esc(c.type)} · inbox</div>
+          <div style="font-size:13px;white-space:pre-wrap;margin:4px 0">${esc(String(body).slice(0,500))}</div>
+          <button type="button" class="btn sm primary" data-enrich-accept="${i}">Accept into inbox</button>
+        </div>`
+      }).join('')
+    preview.querySelectorAll('[data-enrich-accept]').forEach(btn=>{
+      btn.onclick=async()=>{
+        const cand=ENRICH_PENDING && ENRICH_PENDING[Number(btn.dataset.enrichAccept)]
+        const accepted=acceptEnrichCandidate(cand)
+        if(!accepted) return
+        if(accepted.type==='portfolio'){
+          await upsertPortfolioRow(accepted.item)
+          renderPfList()
+        } else {
+          await upsertAccomplishmentRow(accepted.item)
+          renderMemList()
+        }
+        btn.textContent='Accepted ✓'
+        btn.disabled=true
+        logEvent('enrich_accept', null, { type: accepted.type, source: cand.item?._enrich?.source })
+      }
+    })
+  }catch(e){
+    preview.innerHTML='<p class="err" style="margin:0">'+esc(e.message||String(e))+'</p>'
+  }
+})
 $('mem_save')?.addEventListener('click', async ()=>{
   $('mem_err').textContent=''
   try{
