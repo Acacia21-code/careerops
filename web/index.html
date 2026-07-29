@@ -100,10 +100,14 @@
   .board-only.hidden-by-section{display:none!important}
   .mob-tabs{display:none}
   /* board stage */
-  #app{display:flex;flex-direction:column;min-height:100vh}
+  /* Definite height, not min-height: the board's height:100% (and .col max-height:100%)
+     only resolve when #app gives .stage a definite height. Otherwise columns grow to
+     content height, the page scrolls vertically, and the board's horizontal scrollbar
+     ends up far below the fold — leaving the right-hand columns unreachable. */
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
   #app > header{flex:none}
-  #status,#setupbanner,#followups{flex:none}
-  .stage{position:relative;flex:1;min-height:0;overflow:hidden}
+  #status,#setupbanner,#followups,#cadence_nudge,#reconcile_banner,#triage,#mob_tabs{flex:none}
+  .stage{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden}
   #board.board{display:flex;gap:16px;padding:18px 22px;overflow-x:auto;overflow-y:hidden;height:100%;
     align-items:flex-start;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
   .col{flex:0 0 300px;width:300px;min-width:280px;background:var(--col);border:1px solid var(--hair);
@@ -476,6 +480,8 @@
       background:var(--accent-weak);color:var(--accent-ink);border-bottom-color:transparent}
     .fu-chip{max-width:100%}
     .app-section{padding-bottom:96px}
+    /* Keep the board (and its horizontal scrollbar) clear of the fixed bottom tabs. */
+    .stage{padding-bottom:calc(56px + env(safe-area-inset-bottom))}
   }
   @media (max-width:480px){
     header{padding:8px 12px;gap:8px}

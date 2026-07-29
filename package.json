@@ -4,9 +4,10 @@
   "version": "1.2.1",
   "description": "CareerOps public repo — dashboard SPA + agent skill",
   "scripts": {
-    "test": "node scripts/privacy-scan.mjs && node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs && node scripts/test-find-match.mjs && node scripts/test-career-os.mjs && node scripts/test-schema-hardening.mjs && node scripts/test-promote-rpc.mjs && node scripts/test-credential-vault.mjs && node scripts/test-plugins.mjs && node scripts/test-chains.mjs && npm test --prefix packages/careerops",
-    "test:web": "node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs",
+    "test": "node scripts/privacy-scan.mjs && node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs && node scripts/test-board-layout.mjs && node scripts/test-find-match.mjs && node scripts/test-career-os.mjs && node scripts/test-schema-hardening.mjs && node scripts/test-promote-rpc.mjs && node scripts/test-credential-vault.mjs && node scripts/test-plugins.mjs && node scripts/test-chains.mjs && npm test --prefix packages/careerops",
+    "test:web": "node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs && node scripts/test-board-layout.mjs",
     "test:nav": "node scripts/test-nav-sections.mjs",
+    "test:board-layout": "node scripts/test-board-layout.mjs",
     "test:career-os": "node scripts/test-career-os.mjs",
     "test:schema": "node scripts/test-schema-hardening.mjs",
     "test:promote-rpc": "node scripts/test-promote-rpc.mjs",
