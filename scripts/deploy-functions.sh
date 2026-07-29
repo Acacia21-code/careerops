@@ -26,7 +26,7 @@ if [[ -z "$PROJECT_REF" && -f supabase/.temp/project-ref ]]; then
   PROJECT_REF="$(cat supabase/.temp/project-ref)"
 fi
 
-FNS=(resume-rewrite resume-match chat ai-free run-search-mt)
+FNS=(resume-rewrite resume-match chat ai-free run-search-mt upsert_provider_secret clear_provider_secret)
 echo "Deploying edge functions: ${FNS[*]}"
 
 for fn in "${FNS[@]}"; do
@@ -37,4 +37,5 @@ for fn in "${FNS[@]}"; do
     npx --yes supabase@2 functions deploy "$fn"
   fi
 done
-echo "Done. Ensure schema.sql is applied and FREE_AI_* secrets are set if you use free tier."
+echo "Done. Ensure schema.sql (or credential vault migrations) are applied."
+echo "Optional: set CREDENTIALS_KEK for encrypted provider secrets; FREE_AI_* for free tier."

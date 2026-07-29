@@ -14,6 +14,12 @@ kaggle.json
 .sb_token
 .sb-*.txt
 
+# Dependencies
+node_modules/
+
+# Local asset capture scratch
+docs/assets/.capture-frames/
+
 # Python
 .venv/
 venv/
@@ -67,12 +73,14 @@ career-ops-ux/
 supabase/.temp/
 supabase/**/.temp/
 
-# Allow published edge functions + schema + migrations; ignore anything else under supabase/
+# Allow published edge functions + schema + migrations + CI SQL tests; ignore anything else under supabase/
 supabase/*
 !supabase/functions/
 !supabase/functions/**
 !supabase/migrations/
 !supabase/migrations/**
+!supabase/tests/
+!supabase/tests/**
 !supabase/schema.sql
 !supabase/boards.example.json
 !supabase/boards.default.json

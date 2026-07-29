@@ -4,9 +4,15 @@
   "version": "1.1.0",
   "description": "CareerOps public repo — dashboard SPA + agent skill",
   "scripts": {
-    "test": "node scripts/privacy-scan.mjs && node scripts/smoke-web.mjs && node scripts/test-find-match.mjs && node scripts/test-career-os.mjs && node scripts/test-plugins.mjs && node scripts/test-chains.mjs && npm test --prefix packages/careerops",
-    "test:web": "node scripts/smoke-web.mjs",
+    "test": "node scripts/privacy-scan.mjs && node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs && node scripts/test-find-match.mjs && node scripts/test-career-os.mjs && node scripts/test-schema-hardening.mjs && node scripts/test-promote-rpc.mjs && node scripts/test-credential-vault.mjs && node scripts/test-plugins.mjs && node scripts/test-chains.mjs && npm test --prefix packages/careerops",
+    "test:web": "node scripts/smoke-web.mjs && node scripts/test-nav-sections.mjs",
+    "test:nav": "node scripts/test-nav-sections.mjs",
     "test:career-os": "node scripts/test-career-os.mjs",
+    "test:schema": "node scripts/test-schema-hardening.mjs",
+    "test:promote-rpc": "node scripts/test-promote-rpc.mjs",
+    "test:credential-vault": "node scripts/test-credential-vault.mjs",
+    "test:pg-integration": "node scripts/test-pg-integration.mjs",
+    "test:playwright-memory": "node scripts/test-playwright-memory-promote.mjs",
     "test:plugins": "node scripts/test-plugins.mjs",
     "test:chains": "node scripts/test-chains.mjs",
     "test:find": "node scripts/test-find-match.mjs",
@@ -16,6 +22,9 @@
     "deploy:functions": "bash scripts/deploy-functions.sh",
     "deploy:web": "bash scripts/deploy-web.sh",
     "pack:careerops": "npm pack --prefix packages/careerops"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
   },
   "engines": {
     "node": ">=18"

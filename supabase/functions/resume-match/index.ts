@@ -2,6 +2,7 @@
 // Routing: Anthropic key → Claude · else Kimi key → Kimi K3 · else free tier (ai-free) · else keyword overlap.
 // The keyword score measures vocabulary overlap, NOT fit — it is labeled as such in the UI.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { loadProviderSecrets } from '../_shared/credentials.ts'
 
 const STOP=new Set(('a an the and or of to in for with on at by as is are be will you your our we they this that role team work working experience years across including etc from into over per within about their them these those who whom which what when where how all any can may must should more most other than then them us it its need needs required requirements responsibilities responsible ability able strong excellent good great new using use used help support build built drive driven lead led manage managed ensure ensuring deliver delivered '+
 'please people range learn application applications applicants apply applying compensation benefits salary pay bonus equity collection touch done gets long term nbsp amp opportunity opportunities excellence model models managers manager executives executive month months year location locations remote hybrid onsite role position company companies candidate candidates employment status equal diverse diversity inclusion inclusive disability veteran gender race religion orientation accommodation accommodations privacy policy notice rights reserved qualified without regard national origin employer proud committed offer offers package perks insurance dental vision 401k pto vacation eligible eligibility legally authorized visa sponsorship background check drug free workplace join joining looking seeking ideal love passionate excited mission vision values culture fast paced dynamic environment growth stage things really every each both also well including'+
@@ -135,7 +136,11 @@ Deno.serve(async (req)=>{
     const sb=createClient(sbUrl, Deno.env.get('SUPABASE_ANON_KEY'), { global:{ headers:{ Authorization: auth } } })
     const { data:{ user } }=await sb.auth.getUser()
     let aiKey=null, kimiKey=null
-    if(user){ const { data:prof }=await sb.from('mt_profiles').select('ai_key,kimi_key').eq('owner',user.id).maybeSingle(); aiKey=prof?.ai_key||null; kimiKey=prof?.kimi_key||null }
+    if(user){
+      const secrets = await loadProviderSecrets(user.id)
+      aiKey = secrets.ai_key
+      kimiKey = secrets.kimi_key
+    }
     const oaiBase=String(body.openai_base_url||'').trim()
     const oaiKey=String(body.openai_key||'').trim()
     const oaiModel=String(body.openai_model||'gpt-4o-mini').trim()||'gpt-4o-mini'

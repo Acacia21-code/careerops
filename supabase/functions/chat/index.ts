@@ -1,6 +1,8 @@
 // Board-aware assistant.
 // Routing: Anthropic key → Claude · else Kimi key → Kimi K3 · else free tier (ai-free).
+// BYO keys loaded server-side from credential vault (never returned to the browser).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { loadProviderSecrets } from '../_shared/credentials.ts'
 
 Deno.serve(async (req)=>{
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Content-Type':'application/json'}
@@ -12,7 +14,8 @@ Deno.serve(async (req)=>{
   if(!user) return new Response(JSON.stringify({error:'not signed in'}),{status:401,headers:cors})
   const body = await req.json().catch(()=>({}))
   const { messages=[] } = body
-  const { data:prof }=await sb.from('mt_profiles').select('ai_key,kimi_key,resume_text,full_name').eq('owner',user.id).maybeSingle()
+  const { data:prof }=await sb.from('mt_profiles').select('resume_text,full_name').eq('owner',user.id).maybeSingle()
+  const secrets = await loadProviderSecrets(user.id)
   const oaiBase=String(body.openai_base_url||'').trim()
   const oaiKey=String(body.openai_key||'').trim()
   const oaiModel=String(body.openai_model||'gpt-4o-mini').trim()||'gpt-4o-mini'
@@ -115,8 +118,8 @@ ${prof?.resume_text||'(not provided)'}`
 
   try{
     const byoTried=[], byoDetails=[]
-    if(prof?.kimi_key){ try{ return new Response(JSON.stringify(await viaKimi(prof.kimi_key)),{headers:cors}) }catch(e){ byoTried.push('Kimi'); byoDetails.push('Kimi: '+String(e?.message||e).slice(0,180)); console.error('kimi chat failed:', String(e?.message||e)) } }
-    if(prof?.ai_key){ try{ return new Response(JSON.stringify(await viaClaude(prof.ai_key)),{headers:cors}) }catch(e){ byoTried.push('Claude'); byoDetails.push('Claude: '+String(e?.message||e).slice(0,180)); console.error('claude chat failed:', String(e?.message||e)) } }
+    if(secrets.kimi_key){ try{ return new Response(JSON.stringify(await viaKimi(secrets.kimi_key)),{headers:cors}) }catch(e){ byoTried.push('Kimi'); byoDetails.push('Kimi: '+String(e?.message||e).slice(0,180)); console.error('kimi chat failed:', String(e?.message||e)) } }
+    if(secrets.ai_key){ try{ return new Response(JSON.stringify(await viaClaude(secrets.ai_key)),{headers:cors}) }catch(e){ byoTried.push('Claude'); byoDetails.push('Claude: '+String(e?.message||e).slice(0,180)); console.error('claude chat failed:', String(e?.message||e)) } }
     if(oaiBase && oaiKey){ try{ return new Response(JSON.stringify(await viaOpenaiCompat(oaiBase, oaiKey, oaiModel)),{headers:cors}) }catch(e){ byoTried.push('OpenAI-compat'); byoDetails.push('OpenAI-compat: '+String(e?.message||e).slice(0,180)); console.error('openai-compat chat failed:', String(e?.message||e)) } }
     if(byoTried.length){
       return new Response(JSON.stringify({ error:'byo_failed', tried:byoTried, detail:byoDetails.join(' · ') }),{headers:cors})

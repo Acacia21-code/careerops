@@ -81,6 +81,7 @@ check('polish accept with drift block', () => {
   const { drift } = setPolishCandidate(a, 'Grew revenue 25% at Acme')
   assert.equal(drift.blocked, true)
   assert.equal(detectMetricEntityDrift(a.body_current, 'Grew revenue 10% at Acme with focus').blocked, false)
+  assert.equal(detectMetricEntityDrift('Helped ship API', 'Spearheaded API').blocked, true)
   const ok = setPolishCandidate(a, 'Grew revenue 10% at Acme with sharper focus')
   const accepted = acceptPolish(ok.row)
   assert.equal(accepted.revisions.at(-1).source, 'polish_accept')

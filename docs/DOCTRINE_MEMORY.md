@@ -72,6 +72,10 @@ Polish never silently replaces `body_current`:
 - User must **Accept** → writes `body_current` + revision (`source: polish_accept`)
 - No changes to numbers, entities, scope, ownership, or outcomes; reject/warn if detected
 
+### Guardrails, not proof
+
+Metric/entity **drift detection** (`detectMetricEntityDrift`) and **unsupported-claim** checks (`assertNoUnsupportedClaims`) are **heuristic guardrails**, not proof of truth or completeness. They catch common inflation patterns (changed numbers, dropped entities, ownership-verb flips, claims absent from materials). They can false-positive or miss subtle lies. **Human Accept remains mandatory** before polish becomes materials and before anything is treated as sendable. Never market these checkers as anti-hallucination guarantees.
+
 ## Cadence
 
 Calendar-based (not elapsed-since-entry drift):

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CareerOps Memory→Promote smoke harness</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    .hidden { display: none !important; }
+    textarea { width: 100%; min-height: 70px; }
+    .err { color: #b42318; min-height: 18px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <!-- Stable Memory section IDs mirrored from nav regroup (do not rewrite SPA). -->
+  <section id="memorySection" role="tabpanel">
+    <h1>Bullet Memory (test harness)</h1>
+    <p class="muted">Thin browser smoke: polish metric-drift reject → promote → source_id.</p>
+    <label for="mem_body">Accomplishment</label>
+    <textarea id="mem_body" placeholder="What you did — metrics only if true"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button type="button" class="primary" id="mem_save">Save to memory</button>
+    </div>
+    <p class="err" id="mem_err"></p>
+    <div id="mem_list"></div>
+    <div id="mem_polish" class="hidden" style="margin-top:14px;padding:12px;border:1px solid #ccc;border-radius:12px">
+      <p id="mem_polish_meta"></p>
+      <div id="mem_diff"></div>
+      <div style="margin-top:8px">
+        <button class="primary" id="mem_accept">Accept polish</button>
+        <button id="mem_reject">Reject</button>
+      </div>
+    </div>
+  </section>
+  <pre id="smoke_result" data-testid="smoke_result"></pre>
+
+  <script type="module">
+    import {
+      createAccomplishment,
+      setPolishCandidate,
+      acceptPolish,
+      rejectPolish,
+      detectMetricEntityDrift,
+    } from '/web/lib/bullet-memory.mjs'
+    import { promoteAccomplishment } from '/web/lib/resume-sync.mjs'
+
+    const $ = (id) => document.getElementById(id)
+    let MEM_ROWS = []
+    let MEM_POLISH_ID = null
+    let PROFILE = {
+      resume_text: 'Jane\n\nEXPERIENCE\nEng at Acme\n- Old bullet\n',
+      resume_struct: {
+        roles: [{ id: 'r1', header: 'Eng at Acme', sub: '2020–2024', bullets: [{ id: 'b0', text: 'Old bullet' }] }],
+        projects: [],
+        skills: [],
+        education: [],
+        certs: [],
+      },
+      resume_struct_rev: 0,
+    }
+
+    function renderMemList() {
+      const wrap = $('mem_list')
+      wrap.innerHTML = MEM_ROWS.filter((r) => r.status !== 'archived').map((r) => `
+        <div class="card" data-mem="${r.id}">
+          <div>${r.body_current}</div>
+          <div style="margin-top:8px">
+            <button type="button" class="btn sm" data-mem-polish="${r.id}">Polish</button>
+            <button type="button" class="btn sm primary" data-mem-promote="${r.id}">Promote</button>
+          </div>
+        </div>
+      `).join('')
+      wrap.querySelectorAll('[data-mem-polish]').forEach((b) => {
+        b.onclick = () => injectDriftPolish(b.dataset.memPolish)
+      })
+      wrap.querySelectorAll('[data-mem-promote]').forEach((b) => {
+        b.onclick = () => doPromote(b.dataset.memPromote)
+      })
+    }
+
+    /** Simulate AI polish that changes a metric — Accept must stay blocked / reject path. */
+    function injectDriftPolish(id) {
+      $('mem_err').textContent = ''
+      const row = MEM_ROWS.find((x) => x.id === id)
+      if (!row) return
+      const cand = row.body_current.replace(/10%/, '25%').replace(/10/, '25')
+      const drifted = cand === row.body_current
+        ? `${row.body_current} — grew 99%`
+        : cand
+      const { row: next, drift } = setPolishCandidate(row, drifted, { model: 'smoke' })
+      Object.assign(row, next)
+      MEM_POLISH_ID = id
+      $('mem_polish').classList.remove('hidden')
+      $('mem_polish_meta').textContent = drift.blocked
+        ? `⚠ ${drift.reason} — Accept blocked until you edit the candidate.`
+        : 'Candidate ready'
+      $('mem_diff').textContent = `current: ${row.body_current}\ncandidate: ${drifted}`
+      $('mem_accept').disabled = !!drift.blocked
+      window.__lastDrift = drift
+    }
+
+    $('mem_save').onclick = () => {
+      $('mem_err').textContent = ''
+      try {
+        const row = createAccomplishment($('mem_body').value, { role_id: 'r1' })
+        MEM_ROWS.unshift(row)
+        $('mem_body').value = ''
+        renderMemList()
+      } catch (e) {
+        $('mem_err').textContent = e.message
+      }
+    }
+
+    $('mem_accept').onclick = () => {
+      const row = MEM_ROWS.find((x) => x.id === MEM_POLISH_ID)
+      if (!row) return
+      try {
+        const next = acceptPolish(row)
+        Object.assign(row, next)
+        $('mem_polish').classList.add('hidden')
+        MEM_POLISH_ID = null
+        renderMemList()
+      } catch (e) {
+        $('mem_err').textContent = e.message
+        window.__acceptError = e.message
+      }
+    }
+
+    $('mem_reject').onclick = () => {
+      const row = MEM_ROWS.find((x) => x.id === MEM_POLISH_ID)
+      if (!row) return
+      Object.assign(row, rejectPolish(row))
+      $('mem_polish').classList.add('hidden')
+      MEM_POLISH_ID = null
+      renderMemList()
+      window.__polishRejected = true
+    }
+
+    function doPromote(id) {
+      $('mem_err').textContent = ''
+      const row = MEM_ROWS.find((x) => x.id === id)
+      if (!row) return
+      try {
+        const out = promoteAccomplishment(PROFILE, row, { role_id: 'r1' })
+        PROFILE = {
+          ...PROFILE,
+          resume_struct: out.struct,
+          resume_text: out.resume_text,
+          resume_struct_rev: out.resume_struct_rev,
+        }
+        const i = MEM_ROWS.findIndex((x) => x.id === id)
+        MEM_ROWS[i] = out.accomplishment
+        renderMemList()
+        const bullet = out.struct.roles[0].bullets.at(-1)
+        window.__promoteResult = {
+          source_id: bullet.source_id,
+          source_type: bullet.source_type,
+          rev: out.resume_struct_rev,
+        }
+        $('smoke_result').textContent = JSON.stringify(window.__promoteResult)
+      } catch (e) {
+        $('mem_err').textContent = e.message
+      }
+    }
+
+    // Expose for Playwright evaluate helpers
+    window.__memSmoke = {
+      detectMetricEntityDrift,
+      getProfile: () => PROFILE,
+      getRows: () => MEM_ROWS,
+    }
+  </script>
+</body>
+</html>

@@ -565,7 +565,7 @@ function summarizeRevisions(revisions) {
   }))
 }
 
-function sanitizeProfile(p) {
+export function sanitizeProfile(p) {
   const band = normalizeTargetBand(p)
   const out = {
     full_name: p.full_name,
@@ -596,5 +596,9 @@ function sanitizeProfile(p) {
   delete out.humanizer_pw
   delete out.humanizer_pass
   delete out.humanizer_email
+  delete out.ai_key_on_file
+  delete out.kimi_key_on_file
+  delete out.humanizer_pw_on_file
+  delete out.humanizer_email_on_file
   return out
 }

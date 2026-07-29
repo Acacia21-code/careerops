@@ -203,8 +203,9 @@ function extractEntities(s) {
 
 function ownershipSignal(s) {
   const t = s.toLowerCase()
-  if (/\b(led|owned|drove|founded|built alone)\b/.test(t)) return 'lead'
-  if (/\b(contributed|supported|helped|assisted|participated)\b/.test(t)) return 'support'
+  // Lead / ownership-inflation verbs (guardrail heuristic — not proof of truth).
+  if (/\b(led|owned|drove|founded|built alone|spearheaded|championed|solely|single-handedly)\b/.test(t)) return 'lead'
+  if (/\b(contributed|supported|helped|assisted|participated|collaborated)\b/.test(t)) return 'support'
   return 'neutral'
 }
 

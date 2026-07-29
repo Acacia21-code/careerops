@@ -3,6 +3,7 @@
 // v8: hard résumé structure + every match gap must be evidenced OR listed under GAP STATUS (cannot claim).
 // v7 compat: optional body.resume_text, mode:'bullet' + body.bullet_text, jobscan_text.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { loadProviderSecrets } from '../_shared/credentials.ts'
 
 Deno.serve(async (req)=>{
   const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Content-Type':'application/json'}
@@ -18,7 +19,8 @@ Deno.serve(async (req)=>{
     : Array.isArray(body.missing_keywords) ? body.missing_keywords
     : []
   const gaps = gapsRaw.map((g)=>String(g||'').replace(/^\s*no\s+/i,'').trim()).filter(Boolean).slice(0,12)
-  const { data:prof }=await sb.from('mt_profiles').select('ai_key,kimi_key,resume_text,full_name').eq('owner',user.id).maybeSingle()
+  const { data:prof }=await sb.from('mt_profiles').select('resume_text,full_name').eq('owner',user.id).maybeSingle()
+  const secrets = await loadProviderSecrets(user.id)
 
   const baseResume=(typeof resume_text==='string' && resume_text.trim()) ? resume_text : (prof?.resume_text||'')
   if(mode==='bullet'){
@@ -132,8 +134,8 @@ Open with why this role, prove fit with 2–3 real points, close with a clear as
     const byoTried=[], byoDetails=[]
     // Prefer Kimi when present: Claude (claude-sonnet-5) has hung on full-resume rewrites and
     // previously blocked fallback until the gateway returned a bare non-2xx.
-    if(prof?.kimi_key){ try{ return new Response(JSON.stringify(await viaKimi(prof.kimi_key)),{headers:cors}) }catch(e){ byoTried.push('Kimi'); byoDetails.push('Kimi: '+String(e?.message||e).slice(0,180)); console.error('kimi rewrite failed:', String(e?.message||e)) } }
-    if(prof?.ai_key){ try{ return new Response(JSON.stringify(await viaClaude(prof.ai_key)),{headers:cors}) }catch(e){ byoTried.push('Claude'); byoDetails.push('Claude: '+String(e?.message||e).slice(0,180)); console.error('claude rewrite failed:', String(e?.message||e)) } }
+    if(secrets.kimi_key){ try{ return new Response(JSON.stringify(await viaKimi(secrets.kimi_key)),{headers:cors}) }catch(e){ byoTried.push('Kimi'); byoDetails.push('Kimi: '+String(e?.message||e).slice(0,180)); console.error('kimi rewrite failed:', String(e?.message||e)) } }
+    if(secrets.ai_key){ try{ return new Response(JSON.stringify(await viaClaude(secrets.ai_key)),{headers:cors}) }catch(e){ byoTried.push('Claude'); byoDetails.push('Claude: '+String(e?.message||e).slice(0,180)); console.error('claude rewrite failed:', String(e?.message||e)) } }
     if(oaiBase && oaiKey){ try{ return new Response(JSON.stringify(await viaOpenaiCompat(oaiBase, oaiKey, oaiModel)),{headers:cors}) }catch(e){ byoTried.push('OpenAI-compat'); byoDetails.push('OpenAI-compat: '+String(e?.message||e).slice(0,180)); console.error('openai-compat rewrite failed:', String(e?.message||e)) } }
     // If the user has BYO keys, do NOT disguise failure as free-tier outage.
     if(byoTried.length){

@@ -15,3 +15,47 @@ jobs:
           node-version: '20'
       - name: Web + CLI smoke
         run: npm test
+
+  pg-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: careerops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d careerops_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Postgres CHECK / RLS / migration / promote txn
+        run: npm run test:pg-integration
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/careerops_test
+
+  playwright-memory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install deps
+        run: npm install
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Memory → polish reject → promote smoke
+        run: npm run test:playwright-memory
+        env:
+          PLAYWRIGHT_STRICT: '1'

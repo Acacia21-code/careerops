@@ -17,6 +17,14 @@ if (!fs.existsSync(htmlPath)) {
 }
 
 const html = fs.readFileSync(htmlPath, 'utf8')
+const uiDir = path.join(root, 'web/ui')
+const uiSource = fs.existsSync(uiDir)
+  ? fs.readdirSync(uiDir)
+    .filter((name) => name.endsWith('.mjs'))
+    .map((name) => fs.readFileSync(path.join(uiDir, name), 'utf8'))
+    .join('\n')
+  : ''
+const appSource = `${html}\n${uiSource}`
 
 const requiredIds = [
   'board',
@@ -46,6 +54,7 @@ const requiredIds = [
   's_oai_key',
   's_oai_model',
   'exp_boardpack',
+  'boardbtn',
   'memorybtn',
   'portfoliobtn',
   'advisorbtn',
@@ -63,6 +72,14 @@ const requiredIds = [
   'settingsbtn',
   'run',
   'addrolebtn',
+  'memorySection',
+  'portfolioSection',
+  'advisorSection',
+  'hdr_actions',
+  'hdr_actions_menu',
+  'hdr_more',
+  'hdr_cluster',
+  'mob_tabs',
 ]
 
 const requiredStrings = [
@@ -83,9 +100,14 @@ const requiredStrings = [
   { name: 'Remote US only pref', re: /remote_us/ },
   { name: 'styled triage fields', re: /class="triage-field"/ },
   { name: 'next step after verdict', re: /id="dw_nextstep"/ },
-  { name: 'bullet memory modal', re: /id="memoryModal"/ },
-  { name: 'portfolio modal', re: /id="portfolioModal"/ },
-  { name: 'advisor modal', re: /id="advisorModal"/ },
+  { name: 'bullet memory section', re: /id="memorySection"/ },
+  { name: 'portfolio section', re: /id="portfolioSection"/ },
+  { name: 'advisor section', re: /id="advisorSection"/ },
+  { name: 'no memory overlay modal', re: /id="memoryModal"/, invert: true },
+  { name: 'no portfolio overlay modal', re: /id="portfolioModal"/, invert: true },
+  { name: 'no advisor overlay modal', re: /id="advisorModal"/, invert: true },
+  { name: 'section tabs Board Memory', re: /data-section="board"[\s\S]*?data-section="memory"/ },
+  { name: 'Actions menu control', re: /id="hdr_actions"/ },
   { name: 'grounded follow-up box', re: /Grounded follow-up/ },
   { name: 'JD triage modal', re: /id="jdtriage"/ },
   { name: 'Triage a JD control', re: /Triage a JD/ },
@@ -102,13 +124,13 @@ const requiredStrings = [
 let failed = 0
 
 for (const id of requiredIds) {
-  const ok = html.includes(`id="${id}"`)
+  const ok = appSource.includes(`id="${id}"`)
   console.log(ok ? `ok  #${id}` : `FAIL #${id}`)
   if (!ok) failed++
 }
 
 for (const s of requiredStrings) {
-  const hit = s.re.test(html)
+  const hit = s.re.test(appSource)
   const ok = s.invert ? !hit : hit
   console.log(ok ? `ok  ${s.name}` : `FAIL ${s.name}`)
   if (!ok) failed++

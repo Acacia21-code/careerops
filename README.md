@@ -1,144 +1,127 @@
 # CareerOps
 
-**Open-source operating system for managing your career** — not “AI writes resumes.”  
-Find roles across **87 company career boards**, track the pipeline, capture **bullet memory** with provenance, check fit, and generate tailored drafts from **only what you provide** — then you apply yourself.
+> Stop rebuilding your career from scratch every time you look for a job.
+>
+> CareerOps is a local-first, open-source Career Operating System that remembers your accomplishments, tailors resumes, tracks applications, prepares interviews, and never invents experience.
 
+[![CI](https://github.com/TelivityAI/careerops/actions/workflows/smoke.yml/badge.svg)](https://github.com/TelivityAI/careerops/actions/workflows/smoke.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/TelivityAI/careerops?label=release)](https://github.com/TelivityAI/careerops/releases/latest)
 [![Demo](https://img.shields.io/badge/demo-careerops.telivity.app-0ccabf)](https://careerops.telivity.app)
-[![Job boards](https://img.shields.io/badge/job%20boards-87%20default-0ccabf)](supabase/boards.default.json)
-[![npm](https://img.shields.io/npm/v/@telivity/careerops.svg)](https://www.npmjs.com/package/@telivity/careerops)
-[![Skill](https://img.shields.io/badge/agent%20skill-careerops-0ccabf)](docs/SKILL.md)
 
-**Live demo:** [careerops.telivity.app](https://careerops.telivity.app)  
-**Default Find pack:** **87** verified public company boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) — see [`supabase/boards.default.json`](supabase/boards.default.json). Override with your own list.  
-**Model weights (separate):** [CareerOps-4B on Hugging Face](https://huggingface.co/telivity/CareerOps-4B)  
-**Agent skill:** `npx @telivity/careerops@1.1.0 init` (or latest) — modes scan / evaluate / rank / tailor / interview / followup / outcome / advise ([docs](docs/SKILL.md))
+![Bullet Memory → Promote to Resume](docs/assets/memory-promote.gif)
+
+*Hero clip: capture a real accomplishment → promote it into your resume. Public-safe asset path for the demo GIF (seeded/fake profile only — see [docs/assets/](docs/assets/)).*
+
+## Quick start (≈5 minutes)
+
+1. **Try it** — open the live demo: [careerops.telivity.app](https://careerops.telivity.app)
+2. **Install the agent skill** (scan / evaluate / rank / tailor / interview / followup / outcome / advise):
+
+   ```bash
+   npx @telivity/careerops init
+   ```
+
+   Details: [docs/SKILL.md](docs/SKILL.md)
+3. **Self-host** — clone, point `web/config.js` at *your* Supabase project, apply schema, deploy. Steps below → [Self-host](#self-host). Local contributor path: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+You apply on the employer site. CareerOps does **not** auto-apply.
 
 ---
 
-## Why this exists
+## 30-second story
 
-Most “AI career” tools do one of two things badly:
+Monday: production outage. You fix it, ship the postmortem, then… forget the wording by the time you need a resume.
 
-1. **Spam boards** and invent experience so the resume “matches.”  
-2. **Dump a wall of text** that you can’t trust in an interview.
+With CareerOps you **capture the bullet while it’s fresh** (immutable original). Later you **promote** it into a role on your structured resume, **tailor** a version for a real JD from ranked memory you already own, **prep interview stories** from the same facts, and track the role through **offer** — without starting from a blank page every search.
 
-CareerOps is built as a **career OS** for people running a search like an ops problem:
+Doctrine (materials-first, provenance, no invented experience): [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md).
 
-- A **kanban** you actually drag (you own the stages).  
-- **Bullet memory** — institutional evidence between searches (`body_original` immutable; polish needs Accept; promote is bidirectional).  
-- A **decide** surface (drawer): JD, match, materials gaps, Apply / Stretch / Skip as *tags only*.  
-- A **write** surface (builder): pick your bullets → generate from **ranked** memory (not newest-20) → edit → save versions → download Word → open the real JD and apply.
-- **Portfolio** + **advisor** under the same provenance doctrine.
+## Demo gallery
 
-The product doctrine is blunt and encoded in the UI:
+<details>
+<summary><b>See the rest of the product loop</b> — four short, silent demos + five stills</summary>
 
-> AI may only improve **truth you already provided**.  
-> Gaps are “in your materials / worth adding?” — not shame.  
-> **Education is yours** — Generate does not rewrite it.  
-> Saving **never overwrites** — every save is a new version.  
-> **`resume_struct` is canonical** — structured edits sync `resume_text` atomically (see [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md)).
+### Tailor a resume
+
+![Tailor a resume from selected evidence](docs/assets/tailor-resume.gif)
+
+### Prepare for an interview
+
+![Prepare interview angles from the story bank](docs/assets/interview-prep.gif)
+
+### Track applications
+
+![Track an application across the board](docs/assets/application-board.gif)
+
+### Compare offers
+
+![Compare user-entered offer terms](docs/assets/offer-compare.gif)
+
+**Stills:** [Dashboard](docs/assets/dashboard.png) · [Resume builder](docs/assets/resume-builder.png) · [Bullet memory](docs/assets/bullet-memory.png) · [Interview prep](docs/assets/interview-prep.png) · [Offer comparison](docs/assets/offer-compare.png)
+
+All media uses a seeded throwaway profile and fictional companies. Capture notes: [docs/assets/README.md](docs/assets/README.md).
+
+</details>
+
+---
+
+## Why not ChatGPT?
+
+| | ChatGPT (or a blank chat) | CareerOps |
+|--|---------------------------|-----------|
+| **Memory** | Ephemeral threads; you re-explain yourself each session | Persistent **bullet memory** that compounds across searches |
+| **Evidence** | Easy to invent metrics that won’t survive an interview | Drafts are driven from **your** materials; gaps stay labeled gaps |
+| **History** | Hard to keep years of work reusable and trustworthy | Structured history you can promote, version, and reuse |
+| **Reuse** | Copy-paste into a new doc every time | Kanban → match → builder → Word export → you apply |
+
+Neutral contrast only — ChatGPT is great for drafting prose; CareerOps is the **ops loop** around career evidence. See also [docs/POSITIONING.md](docs/POSITIONING.md).
+
+---
+
+## The career loop
+
+```mermaid
+flowchart LR
+  work[Work]
+  memory[Bullet Memory]
+  resume[Resume Builder]
+  apps[Applications]
+  interview[Interview]
+  offers[Offers]
+  work --> memory --> resume --> apps --> interview --> offers
+```
+
+Find roles (default pack of **87** public company boards — [`supabase/boards.default.json`](supabase/boards.default.json)), decide in the drawer, write in the builder, capture memory between searches. Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+## Built for
+
+Engineers · PMs · designers · consultants · sales · students — anyone who wants a **career OS**, not a one-shot “AI wrote my resume” tool.
 
 ---
 
 ## What you get
 
-### 1. Find — fill the board with hygiene
+| Area | What it does | Dig deeper |
+|------|----------------|------------|
+| **Find** | Fill a kanban from verified public ATS boards (or Add role / LinkedIn helper). Hygiene: blocklist, max age, remote prefs, triage. | Board pack + prefs in the app; boards JSON above |
+| **Decide** | Drawer: JD provenance, match + materials coverage, Apply/Stretch/Skip as *tags only*. | Same doctrine as memory docs |
+| **Write** | Builder: tick bullets → generate from **ranked** memory → edit → append-only versions → Word → you apply. Education locked by default. | [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md) |
+| **Memory · Portfolio · Advise** | Capture with immutable originals; promote into resume/projects; advisor briefs separate observed materials from labeled judgment. | Doctrine + [docs/ROADMAP.md](docs/ROADMAP.md) |
+| **BYO model + skill** | Optional Anthropic / Kimi / OpenAI-compatible keys; board-pack export for offline skill runs (keys never included). | [docs/SKILL.md](docs/SKILL.md), [docs/CHAINS.md](docs/CHAINS.md), [docs/PLUGINS.md](docs/PLUGINS.md) |
 
-Sourced → Researched → Conversation → Applied → Interview → Offer → Rejected → Closed.
+Hard product rules (also in the UI): AI may only improve **truth you already provided**; Generate does not rewrite Education; saving **never overwrites** (new version each time); `resume_struct` is canonical.
 
-- **Run job search** scans the default pack of **87** verified public company career boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters; [`boards.default.json`](supabase/boards.default.json)) using your titles, keywords, seniority, and locations — with **geo gating** (US-centric prefs reject foreign-pinned Remote) and server + client **dedupe** so the same role doesn’t land repeatedly.  
-- **Find hygiene** (Settings): company **blocklist**, **max posting age**, **remote preference**, and soft-hide of blocked / stale / non-matching roles.  
-- **Triage** on Sourced: batch match, dedupe, sort/filter by verdict — tags scores only; never applies.  
-- **Add role**: paste **link + job description** when a scrape is incomplete.  
-- **LinkedIn**: no LinkedIn API — opens Google `site:linkedin.com/jobs` from your prefs; you paste links back in.  
-- Cards stay calm: company, title, optional PDF/sent markers, staleness — not a screaming match % on every card.
+### Deliberately does *not*
 
-### 2. Decide — drawer evaluate
+- Auto-apply or LinkedIn automation  
+- Invent employers, titles, metrics, or education  
+- Treat Apply/Stretch/Skip as “we applied for you”  
+- Quietly overwrite saved drafts  
 
-Click a card:
-
-- Load or paste the JD (with provenance: from link / pasted / saved).  
-- **Garbage JD reject**: careers/marketing scrapes are refused so you don’t “match” against a homepage.  
-- **Check my match** → score + materials coverage (“N of M in your materials”).  
-- Gaps split into **In your materials** vs **Worth adding?**  
-- **Evaluate pack**: structured call suggestion (Apply / Stretch / Skip) — tags the card only; does **not** apply for you or move columns.  
-- Interview angles, research/outreach drafts, and outcome notes when you need them.  
-- **Follow-ups**: Applied / Interview roles surface a due strip so nothing goes silent.
-
-### 3. Write — builder with locks, review, sent
-
-- Left: **Summary / Experience / Skills** nav + tick bullets that feed Generate.  
-- **Section locks**: Education locked by default (AI won’t overwrite); optional Experience lock.  
-- Center: draft paper, **Review draft** (lists issues only — never edits for you), Word export, append-only **Saved versions**.  
-- **Sent** marker freezes a version until you unfreeze — so you know what left the building.  
-- Right: match hero, gap cards, **Generate draft** (resume and/or cover).  
-
-Hard rules in code, not just marketing:
-
-- Inserting a gap **requires** your detail / a checked bullet — it will **not** paste the gap title as a fake accomplishment.  
-- Generate is driven by **checked experience** + **ranked bullet memory** (checked → role-linked → relevance; recency tie-break only) + materials you added.  
-- Versions are **append-only** with human names like `Company — Role — date`.
-
-### 4. Memory · Portfolio · Advise
-
-- **Memory**: capture facts with immutable originals, revision history, soft archive, calendar cadence nudges, polish diff/Accept, promote into resume with source links.  
-- **Portfolio**: code / design / product items; `resume_ok` visibility; same promote sync path into `resume_struct.projects[]`.  
-- **Advise**: structured brief separating observed materials from labeled market judgment; grounded follow-ups persist on the same `mt_reports.kind='advisor'` artifact (no freeform chat surface); skill mode `advise`.
-
-### 5. Bring your own model + offline skill
-
-- Optional **BYO** keys in Settings: Anthropic (Claude), Kimi, or any **OpenAI-compatible** base URL + key + model (your bill). Free-tier messaging when no key.  
-- **Board pack** export (Settings → Your data): sanitized JSON (`schema_version` 2) for local agent skill runs — API keys never included; includes accomplishments + portfolio provenance.  
-- Agent skill via `npx @telivity/careerops init` — modes scan / evaluate / rank / tailor / interview / followup / outcome / advise.  
-- Exports strip API keys. Event logging stores **action names / ids**, not resume or JD text.  
-- Banner doctrine: treat AI text as a draft; **never invent** experience; you apply on the employer site.
-
-Roadmap (Phases 2–4): [docs/ROADMAP.md](docs/ROADMAP.md). Positioning backlog: [docs/POSITIONING.md](docs/POSITIONING.md).
-
----
-
-## How people use it (core loop)
-
-```text
-Sign in → set titles/keywords/locations (+ paste resume)
-    ↓
-Fill the board (search / LinkedIn helper / Add role)
-    ↓
-Drag cards as the search progresses
-    ↓
-Open a role → match → fill materials gaps with YOUR facts
-    ↓
-Build resume → tick bullets → Generate → edit → Save version
-    ↓
-Download Word → Open JD → apply on the employer site
-```
-
-Follow-ups: roles in Applied / Interview surface a due strip (~14 days) so nothing goes silent.
-
----
-
-## Screenshots
-
-> **Privacy:** do not commit screenshots of a real personal board. Use a throwaway demo account with fake companies, or crop to chrome-only.
-
-| Shot | What to capture |
-|------|------------------|
-| Login | Brand + sign-in (safe on the public demo logged out) |
-| Board | Empty or fake cards across stages |
-| Add role | Link + JD paste modal |
-| Drawer | Match % + materials gaps (fake JD) |
-| Builder | Three panes: bullets · draft · gaps |
-
-Drop files under `docs/images/` and link them here when ready:
-
-```markdown
-![Login](docs/images/01-login.png)
-![Board](docs/images/02-board.png)
-![Builder](docs/images/03-builder.png)
-```
-
-**Demo:** [careerops.telivity.app](https://careerops.telivity.app)
+Model **weights** (separate from this app): [CareerOps-4B on Hugging Face](https://huggingface.co/telivity/CareerOps-4B). The live UI goes through Supabase edge functions — it does not load HF weights in the browser.
 
 ---
 
@@ -157,10 +140,10 @@ flowchart LR
 
 | Public in this repo | Private to you |
 |---------------------|----------------|
-| SPA (`web/`), edge function source (`supabase/functions/`), schema SQL, agent skill, training *code* | Live Supabase project, API keys, operator data, optional custom ATS board lists |
-| Model **weights** on Hugging Face | Training datasets / résumé-derived eval sets |
+| SPA (`web/`), edge function source, schema SQL, agent skill, training *code* | Live Supabase project, API keys, your career data, optional custom ATS lists |
+| Model weights on Hugging Face | Training datasets / résumé-derived eval sets |
 
-Search is a **configurable ATS addon**: default **87** company boards in [`supabase/boards.default.json`](supabase/boards.default.json) (Greenhouse / Ashby / Lever / Workday / SmartRecruiters). Bring your own board list for more. The product value is the ops loop (board → decide → tailor → sent). You can also **Add role** / paste from any external search tool — CareerOps does not auto-apply.
+More: [web/README.md](web/README.md), [docs/README.md](docs/README.md).
 
 ---
 
@@ -180,83 +163,43 @@ cp web/config.example.js web/config.js
 # 3) Link + deploy edges then web
 export SUPABASE_ACCESS_TOKEN=…          # from `npx supabase login` / dashboard
 export SUPABASE_PROJECT_REF=your_ref    # Project Settings → General
-npm run deploy                          # functions then web (or split below)
-# npm run deploy:functions
-# npm run deploy:web
+npm run deploy                          # functions then web
 ```
 
-Optional free-tier secrets on the project: `FREE_AI_ENDPOINT`, `FREE_AI_TOKEN`, `FREE_AI_MODEL`, `FREE_AI_ALLOW` (`*` = all authenticated users).
+`web/config.js` is gitignored — never commit real keys. Use **your** Supabase project, not the hosted demo credentials.
 
-Job search boards: default pack is **87** companies in [`supabase/boards.default.json`](supabase/boards.default.json). Copy [`supabase/boards.example.json`](supabase/boards.example.json) into profile field `ats_boards` (JSON), or pass `{ "boards": { … } }` when invoking `run-search-mt`, to override.
+**Provider secrets (self-host tradeoff):** By default, BYO Claude / Kimi / humanizer credentials can live as **plaintext columns** on `mt_profiles` (simple self-host). The hosted demo does **not** expose those columns to the browser — it stores AES-GCM ciphertext in `mt_provider_secrets` and shows only “key on file”. To match hosted behavior on your project, set edge secret `CREDENTIALS_KEK` (any strong passphrase or 32-byte base64) and deploy `upsert_provider_secret` / `clear_provider_secret`. Without `CREDENTIALS_KEK`, Settings falls back to plaintext profile columns. Migrations never encrypt existing rows in CI (KEK is an edge secret); with KEK set, edge functions lazily migrate plaintext → vault on first use. See [`supabase/README.md`](supabase/README.md).
 
-`web/config.js` is gitignored — never commit real keys.
-
-### What this repo includes
+Optional free-tier secrets: `FREE_AI_ENDPOINT`, `FREE_AI_TOKEN`, `FREE_AI_MODEL`, `FREE_AI_ALLOW`. Override job boards via profile `ats_boards` or `run-search-mt` — see [`supabase/boards.example.json`](supabase/boards.example.json).
 
 | Path | Purpose |
 |------|---------|
-| `web/` | The dashboard SPA |
-| `supabase/functions/` | Edge functions (match, rewrite, Advise invoke via chat, free AI, search) |
-| `supabase/schema.sql` | Minimal tables + RLS for self-host |
+| `web/` | Dashboard SPA |
+| `supabase/functions/` | Edge functions |
+| `supabase/schema.sql` | Minimal tables + RLS |
 | `training/` | Optional train/eval *code* (datasets not included) |
 | `.agents/skills/careerops/` | Open Agent Skill |
 | `packages/careerops` | `npx @telivity/careerops init` |
 | `scripts/deploy*.sh` | Deploy helpers |
-| `LICENSE` | Apache-2.0 |
-
-### What you must bring
-
-1. A **Supabase** project (Auth, schema from `schema.sql`, optional `reports` storage bucket).  
-2. **Secrets / tokens** for deploy (`SUPABASE_ACCESS_TOKEN`) and optional free AI.  
-3. A **static host** (Vercel via `npm run deploy:web`, or any host serving `web/`).  
-
-The hosted demo is Telivity’s instance. Forks should use **their** project, not the demo credentials.
-
-- **UI IA:** board → drawer (decide) → builder (write). Escape hatch: `?legacy=1` for the old centered role panel.  
-- **Mobile:** board + drawer; builder asks for a larger screen.  
-- **Config:** `window.CAREEROPS_CONFIG` from `config.js` (see `web/config.example.js`).  
-- **Skill:** export a Board pack from Settings for offline agent modes, or point the skill at your Supabase/`config.js`.
 
 ---
 
-## Agent skill (optional)
+## Docs
 
-```bash
-npx @telivity/careerops init
-```
+| Doc | Topic |
+|-----|--------|
+| [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md) | Memory, provenance, promote |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Phases 2–4 |
+| [docs/SKILL.md](docs/SKILL.md) | Agent skill modes |
+| [docs/CHAINS.md](docs/CHAINS.md) | Human-gated mode chains |
+| [docs/PLUGINS.md](docs/PLUGINS.md) | Extension hooks |
+| [docs/POSITIONING.md](docs/POSITIONING.md) | Positioning backlog |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community norms |
+| [CHANGELOG.md](CHANGELOG.md) | Releases |
 
-Installs `.agents/skills/careerops/` and symlinks for common agent CLIs. See [docs/SKILL.md](docs/SKILL.md). The web board remains the human SoT; the skill is a power-user front door that respects the same doctrine.
-
----
-
-## Model vs app
-
-| | |
-|--|--|
-| **This repo** | Forkable **dashboard** + edge sources + optional `training/` code |
-| **Hugging Face** | **CareerOps-4B** weights ([adapter](https://huggingface.co/telivity/CareerOps-4B) / [merged](https://huggingface.co/telivity/CareerOps-4B-merged) / [GGUF](https://huggingface.co/telivity/CareerOps-4B-GGUF)) |
-
-Training **datasets** are not in this repo (see `training/README.md`). Public model weights are on Hugging Face only.
-
-The live UI’s match/rewrite path goes through Supabase edge functions — it does **not** load HF weights in the browser.
-
----
-
-## What CareerOps deliberately does *not* do
-
-- Auto-apply or LinkedIn automation  
-- Invent employers, titles, metrics, or education  
-- Treat Apply/Stretch/Skip as “we applied for you”  
-- Depend on Jobscan’s API (optional PDF/text attach only)  
-- Quietly overwrite saved drafts  
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).  
-Be kind: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).  
-Security: [SECURITY.md](SECURITY.md).
+Screenshots / GIFs: drop public-safe media under [`docs/assets/`](docs/assets/) (preferred) or [`docs/images/`](docs/images/) — never commit a real personal board.
 
 ---
 
@@ -265,10 +208,4 @@ Security: [SECURITY.md](SECURITY.md).
 Copyright © Telivity and contributors.  
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
----
-
-## Releases
-
-Versioning follows git tags (`v1.1.0`, …). See [CHANGELOG.md](CHANGELOG.md).  
-Publish: `cd packages/careerops && npm publish --access public` (or the `Release` workflow when `NPM_TOKEN` is set).
-
+Versioning follows git tags (`v1.1.0`, …). Publish: `cd packages/careerops && npm publish --access public` (or the `Release` workflow when `NPM_TOKEN` is set).
