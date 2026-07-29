@@ -615,7 +615,7 @@
         <button type="button" id="memorybtn" title="Bullet memory — capture facts with provenance">🧠 Memory</button>
         <button type="button" id="portfoliobtn" title="Portfolio library">🗂 Portfolio</button>
         <button type="button" id="advisorbtn" title="Career advisor brief">🧭 Advise</button>
-        <button id="resumebtn">📄 Resume tool</button>
+        <button type="button" id="jdtriagebtn" title="Paste a JD not yet on the board — score it, then add">📋 Triage a JD</button>
         <button id="chatbtn" class="hidden">💬 Chat</button>
         <button id="settingsbtn">⚙︎ Settings</button>
         <button id="signout">Sign out</button>
@@ -1008,37 +1008,30 @@
   </div>
 </div></div>
 
-<!-- resume modal -->
-<div id="resume" class="modal hidden"><div class="box">
-  <h2 style="margin:0 0 6px">Resume tool</h2>
-  <p class="muted" style="margin:0 0 10px">Paste a job description. Get a match score + the keywords you're missing. If you added an AI key, you can also auto-rewrite.</p>
-  <label>Job description</label><textarea id="jd" placeholder="Paste the job description here…"></textarea>
-  <div class="row" style="margin-top:10px">
-    <button class="primary" id="matchbtn">Get match report</button>
-    <button class="green" id="rewritebtn">✨ AI rewrite resume</button>
-    <button class="green" id="coverbtn">✉️ Cover letter</button>
-    <button id="resumeclose" style="margin-left:auto">Close</button>
+<!-- JD triage modal — score a posting not yet on the board, then Add to board -->
+<div id="jdtriage" class="modal hidden"><div class="box" style="max-width:640px">
+  <h2 style="margin:0 0 6px">Triage a JD</h2>
+  <p class="muted" style="margin:0 0 10px">Paste a job description that isn’t on your board yet. Get a match score + gap split, then <b>Add to board</b> so the score lands on the card. Tailoring stays in the drawer — never auto-applies.</p>
+  <div class="row">
+    <div><label>Company <span class="h">for Add to board</span></label><input id="jt_company" placeholder="Marriott"></div>
+    <div><label>Job title <span class="h">for Add to board</span></label><input id="jt_title" placeholder="Director, Distribution"></div>
   </div>
-  <p class="muted" style="font-size:12px;margin:6px 0 0">Match report is free. AI rewrite &amp; cover letter need your Anthropic key (add it in Settings).</p>
+  <label>Link to the posting <span class="h">optional</span></label>
+  <input id="jt_url" placeholder="https://www.linkedin.com/jobs/view/…">
+  <label style="margin-top:10px">Job description</label>
+  <textarea id="jd" style="min-height:160px" placeholder="Paste the full job description here…"></textarea>
+  <div class="row" style="margin-top:10px">
+    <button class="primary" id="matchbtn">Check match</button>
+    <button class="green" id="jt_add" disabled title="Fill company + title + JD">Add to board</button>
+    <button id="jdtriageclose" style="margin-left:auto">Close</button>
+  </div>
+  <p class="muted" style="font-size:12px;margin:6px 0 0">Match is free (same engine as Check my match on the card). Add to board creates a Sourced role and keeps the score — no auto-apply.</p>
   <div class="err" id="resumeerr"></div>
   <div id="matchout" class="hidden" style="margin-top:14px">
     <div style="display:flex;align-items:center;gap:14px"><span class="score" id="scoreval"></span><span class="muted" id="scorenote">match to this job</span></div>
     <p class="muted" id="matchsummary" style="margin:8px 0 0;font-size:13px"></p>
     <p class="muted" id="matchnote" style="font-size:12px;margin:6px 0 0"></p>
-    <p style="font-weight:600;margin:12px 0 4px" id="misslabel">Missing keywords — add these to your resume where true:</p>
-    <div class="chips" id="misschips"></div>
-    <p style="font-weight:600;margin:14px 0 4px" id="prelabel">Already covered:</p>
-    <div class="chips" id="prechips"></div>
-  </div>
-  <div id="rewriteout" class="hidden" style="margin-top:14px">
-    <p style="font-weight:600;margin:0 0 4px" id="outtitle">Result</p>
-    <p class="muted" id="outnote" style="font-size:12px;margin:0 0 6px"></p>
-    <textarea id="rewritetext" style="min-height:280px"></textarea>
-    <div class="row" style="margin-top:8px">
-      <button id="humanizebtn">✨ Humanize wording</button>
-      <button id="dl_txt">⬇︎ Download .txt</button>
-      <button id="dl_doc">⬇︎ Download for Word (.doc)</button>
-    </div>
+    <div id="jt_gaps" style="margin-top:12px"></div>
   </div>
 </div></div>
 
@@ -1316,6 +1309,9 @@ import { buildSalaryCompare, normalizeTargetBand, targetBandLabel, parseBandInpu
 import {
   classifyEnrichUrl, proposeEnrichCandidates, fetchPublicEnrichMeta, acceptEnrichCandidate,
 } from './lib/enrich-inbox.mjs'
+import {
+  buildTriageRoleRow, buildMatchReportRow, splitGapsByMaterials, validateTriageAdd, inferRoleLevel,
+} from './lib/jd-triage.mjs'
 const SUPABASE_URL = 'https://vqcjdqhcdhxjlznpqing.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_nNiBFGj8_NHI2vksvZEpFw_D30oUi5x'
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -5185,111 +5181,140 @@ $('addrolebtn').onclick=()=>{
   $('ar_err').textContent=''; $('addrole').classList.remove('hidden'); $('ar_company').focus()
 }
 $('ar_close').onclick=()=> $('addrole').classList.add('hidden')
+/** Shared Add-role insert — blocklist, dedupe, JD reject/format, ghost risk. */
+async function insertManualRoleOnBoard({ company, title, url, jd, stage }){
+  if(!company||!title) return { error:'Company and job title are required.' }
+  if(!url && !jd) return { error:'Add a posting link and/or paste the job description.' }
+  if(isBlockedCompany(company)) return { error:'That company is on your blocklist (Settings → Find hygiene). Remove it there to add this role.' }
+  let niceJd=jd||''
+  if(niceJd){
+    const why=jdRejectReason(niceJd)
+    if(why==='careers_page') return { error:jdRejectMessage(why) }
+    if(why==='too_short' && stage==='sourced') return { error:jdRejectMessage(why) }
+    niceJd=formatJdReadable(niceJd)
+  }
+  const dup=await isDuplicateRole({ company, title, url })
+  if(dup.dup) return { error:'Already on your board ('+dup.reason+'). Open the existing card instead.', dup }
+  const ghost = estimateGhostRisk({ company, title, url, jd:niceJd })
+  const row = stage==='sourced'
+    ? buildTriageRoleRow({ company, title, url, jd:niceJd||null, ghost_risk:ghost })
+    : { company, title, level:inferRoleLevel(title), url:url||null, source:'manual', fit_score:'—', stage:stage||'researched', ghost_risk:ghost }
+  if(niceJd && stage!=='sourced') row.jd=niceJd
+  if(niceJd && stage==='sourced' && !row.jd) row.jd=niceJd
+  const { data, error } = await sb.from('mt_roles').insert(row).select().single()
+  if(error) return { error:error.message||String(error) }
+  return { data, row }
+}
 $('ar_save').onclick=async()=>{
   $('ar_err').textContent=''
   const company=$('ar_company').value.trim(), title=$('ar_title').value.trim(), url=$('ar_url').value.trim()
   let jd=($('ar_jd')?.value||'').trim()
-  if(!company||!title){ $('ar_err').textContent='Company and job title are required.'; return }
-  if(!url && !jd){ $('ar_err').textContent='Add a posting link and/or paste the job description.'; return }
-  if(isBlockedCompany(company)){ $('ar_err').textContent='That company is on your blocklist (Settings → Find hygiene). Remove it there to add this role.'; return }
-  if(jd){
-    const why=jdRejectReason(jd)
-    if(why==='careers_page'){ $('ar_err').textContent=jdRejectMessage(why); return }
-    jd=formatJdReadable(jd)
-  }
-  const dup=await isDuplicateRole({ company, title, url })
-  if(dup.dup){ $('ar_err').textContent='Already on your board ('+dup.reason+'). Open the existing card instead.'; return }
-  const level=/vp|vice president|chief/i.test(title)?'VP':/senior director|sr\.? director/i.test(title)?'Senior Director':/principal/i.test(title)?'Principal':/director/i.test(title)?'Director':'—'
   const b=$('ar_save'), t=b.textContent; b.disabled=true; b.textContent='Adding…'
   try{
-    const ghost = estimateGhostRisk({ company, title, url, jd })
-    const row={ company, title, level, url:url||null, source:'manual', fit_score:'—', stage:'researched', ghost_risk:ghost }
-    if(jd) row.jd=jd
-    const { data, error } = await sb.from('mt_roles').insert(row).select().single()
-    if(error) throw error
+    const out=await insertManualRoleOnBoard({ company, title, url, jd, stage:'researched' })
+    if(out.error){ $('ar_err').textContent=out.error; return }
     $('addrole').classList.add('hidden')
     await load()
-    if(data?.id){
-      if(url && !jd){
-        // try auto-load; if garbage, drawer will tell them to paste
-        openRole(data.id)
-      } else {
-        openRole(data.id)
-      }
-    }
+    if(out.data?.id) openRole(out.data.id)
   }catch(e){ $('ar_err').textContent=e.message||String(e) }
   finally{ b.disabled=false; b.textContent=t }
 }
-// resume tool
-/* addrole handlers moved above — keep resume tool below */
-$('resumebtn').onclick=()=>{ $('resume').classList.remove('hidden'); $('matchout').classList.add('hidden'); $('rewriteout').classList.add('hidden'); $('resumeerr').textContent=''
-  $('rewritebtn').style.display = '' }
-$('resumeclose').onclick=()=> $('resume').classList.add('hidden')
+// JD triage (was Resume tool) — score off-board JD, then Add to board with match artifact
+let TRIAGE_LAST_MATCH=null
+function jtPaintGaps(data){
+  const gaps=sanitizeGapLabels(data?.missing||[])
+  const { inMat, worth, total }=splitGapsByMaterials(gaps, PROFILE?.resume_text||'')
+  const box=$('jt_gaps'); if(!box) return
+  if(!total){
+    box.innerHTML='<p class="muted" style="margin:0;font-size:13px">No keyword gaps flagged for this check'+(data?.match_score!=null?` (match ${data.match_score}%)`:'')+'.</p>'
+    return
+  }
+  const dHave=inMat.length?`<div class="gap-group have"><div class="gg-h"><span class="ic">✓</span> In your materials</div>${inMat.map(t=>`<div class="gap-item">${esc(t)}</div>`).join('')}</div>`:''
+  const dWorth=worth.length?`<div class="gap-group case"><div class="gg-h"><span class="ic">+</span> Worth adding?</div>${worth.map(t=>`<div class="gap-item">${esc(t)}</div>`).join('')}</div>`:''
+  box.innerHTML=dHave+dWorth
+}
+function jtSyncAddEnabled(){
+  const btn=$('jt_add'); if(!btn) return
+  const company=($('jt_company')?.value||'').trim(), title=($('jt_title')?.value||'').trim()
+  const jd=($('jd')?.value||'').trim()
+  btn.disabled=!(company&&title&&jd)
+}
+;['jt_company','jt_title','jd'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('input', jtSyncAddEnabled)
+})
+$('jdtriagebtn').onclick=()=>{
+  TRIAGE_LAST_MATCH=null
+  $('jdtriage').classList.remove('hidden')
+  $('matchout').classList.add('hidden')
+  $('resumeerr').textContent=''
+  if($('jt_gaps')) $('jt_gaps').innerHTML=''
+  jtSyncAddEnabled()
+  $('jd')?.focus()
+}
+$('jdtriageclose').onclick=()=> $('jdtriage').classList.add('hidden')
 $('matchbtn').onclick = async ()=>{
   $('resumeerr').textContent=''
+  const jd=($('jd')?.value||'').trim()
+  if(!jd){ $('resumeerr').textContent='Paste a job description first.'; return }
+  const why=jdRejectReason(jd)
+  if(why){ $('resumeerr').textContent=jdRejectMessage(why); return }
+  if(!(PROFILE?.resume_text||'').trim()){ $('resumeerr').textContent='Add your resume in Settings first — Check match needs it to score this job.'; return }
   const b=$('matchbtn'), o=b.textContent; b.disabled=true; b.textContent='Scoring…'
   try{
-    let data=null, error=null; try{ data=await invokeMatch({ resume_text:PROFILE?.resume_text||'', jd_text:$('jd').value }); bumpUsage('match') }catch(e){ error=e }
+    let data=null, error=null
+    try{ data=await invokeMatch({ resume_text:PROFILE?.resume_text||'', jd_text:jd }); bumpUsage('match') }catch(e){ error=e }
     if(error||data?.error){ $('resumeerr').textContent=(data?.error||error.message); return }
+    TRIAGE_LAST_MATCH={ match_score:data.match_score, missing:data.missing||[], present:data.present||[], summary:data.summary||'', method:data.method }
     $('scoreval').textContent = data.match_score+'%'
     if(data.method==='keywords'){
       $('scorenote').innerHTML='keyword overlap<br><span style="font-size:11px">word-overlap scan, NOT a fit score</span>'
       $('matchsummary').textContent=''; $('matchnote').textContent=''
-      $('misslabel').textContent='Missing keywords — add these to your resume where true:'
-      $('prelabel').textContent='Already covered:'
     } else {
       const src = data.method==='free' ? 'free AI' : data.method==='kimi' ? 'Kimi K3' : 'Claude'
       $('scorenote').innerHTML='recruiter-style assessment ('+src+')<br><span style="font-size:11px">scored on real fit, not word overlap</span>'
       $('matchsummary').textContent=data.summary||''
       $('matchnote').textContent=AI_NOTE
-      $('misslabel').textContent='Gaps to address (in your resume or interview):'
-      $('prelabel').textContent='Your strongest material for this role:'
     }
-    $('misschips').innerHTML = (data.missing||[]).map(k=>`<span class="chip miss">${esc(k)}</span>`).join('') || '<span class="muted">none — great coverage</span>'
-    $('prechips').innerHTML = (data.present||[]).map(k=>`<span class="chip">${esc(k)}</span>`).join('')
+    jtPaintGaps(data)
     $('matchout').classList.remove('hidden')
+    jtSyncAddEnabled()
   } finally { b.disabled=false; b.textContent=o }
 }
-let OUTKIND='resume'
-async function generate(mode){
+$('jt_add').onclick=async()=>{
   $('resumeerr').textContent=''
-  const b = mode==='cover'?$('coverbtn'):$('rewritebtn'); const o=b.textContent; b.disabled=true; b.textContent='✨ Working…'
+  const company=($('jt_company')?.value||'').trim()
+  const title=($('jt_title')?.value||'').trim()
+  const url=($('jt_url')?.value||'').trim()
+  let jd=($('jd')?.value||'').trim()
+  const verr=validateTriageAdd({ company, title, url, jd })
+  if(verr){ $('resumeerr').textContent=verr; return }
+  const why=jdRejectReason(jd)
+  if(why){ $('resumeerr').textContent=jdRejectMessage(why); return }
+  const b=$('jt_add'), t=b.textContent; b.disabled=true; b.textContent='Adding…'
   try{
-    let data=null, error=null; try{ data=await invokeRewrite({ jd_text:$('jd').value, mode }); bumpUsage('generate') }catch(e){ error=e }
-    if(error) throw error
-    if(data.error==='free_limit'){ $('resumeerr').textContent=FREE_LIMIT_MSG }
-    else if(data.error==='free_unavailable'||data.error==='free_not_enabled'||data.error==='no_key'){ $('resumeerr').textContent=FREE_DOWN_MSG }
-    else if(data.error){ $('resumeerr').textContent=data.error }
-    else if(!data.rewritten || !data.rewritten.trim()){ $('resumeerr').textContent='Model returned nothing — hit the button again.' }
-    else {
-      OUTKIND=mode
-      $('outtitle').textContent = (mode==='cover'?'Cover letter':'AI-tailored resume')+(data.method==='free'?' · free AI':data.method==='kimi'?' · Kimi K3':'')
-      $('outnote').textContent = AI_NOTE
-      $('rewritetext').value=data.rewritten; $('rewriteout').classList.remove('hidden')
-      $('humanizebtn').style.display = PROFILE?.humanizer_email ? '' : 'none'
+    const out=await insertManualRoleOnBoard({ company, title, url, jd, stage:'sourced' })
+    if(out.error){ $('resumeerr').textContent=out.error; return }
+    const role=out.data
+    if(role?.id && TRIAGE_LAST_MATCH && TRIAGE_LAST_MATCH.match_score!=null){
+      const score=TRIAGE_LAST_MATCH.match_score
+      const missing=TRIAGE_LAST_MATCH.missing||[]
+      try{
+        await sb.from('mt_roles').update({ match_score: score+'%' }).eq('id', role.id)
+        await sb.from('mt_reports').insert(buildMatchReportRow({ role_id:role.id, match_score:score, missing_keywords:missing }))
+      }catch(_e){}
+      logEvent('match_report', role.id, { score, method:TRIAGE_LAST_MATCH.method||'triage', panel:'jd_triage' })
     }
-  }catch(err){ $('resumeerr').textContent=await fnMsg(err) }
-  b.disabled=false; b.textContent=o
+    logEvent('jd_triage_add', role?.id, { scored: !!TRIAGE_LAST_MATCH })
+    const scoredLabel = TRIAGE_LAST_MATCH?.match_score!=null ? ` · match ${TRIAGE_LAST_MATCH.match_score}%` : ''
+    $('jdtriage').classList.add('hidden')
+    TRIAGE_LAST_MATCH=null
+    await load()
+    if(role?.id) openRole(role.id)
+    if($('status')) $('status').textContent='Added to Sourced'+scoredLabel+' — score saved on the card.'
+  }catch(e){ $('resumeerr').textContent=e.message||String(e) }
+  finally{ b.disabled=false; b.textContent=t; jtSyncAddEnabled() }
 }
-$('rewritebtn').onclick=()=>generate('resume')
-$('coverbtn').onclick=()=>generate('cover')
 function download(name,text,mime){ const bl=new Blob([text],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(bl); a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href) }
-function baseName(){ const who=(PROFILE?.full_name||'Me').replace(/[^a-zA-Z0-9]+/g,'_'); return who+'_'+(OUTKIND==='cover'?'CoverLetter':'Resume') }
-$('dl_txt').onclick=()=> download(baseName()+'.txt', $('rewritetext').value, 'text/plain')
-$('dl_doc').onclick=()=>{ const esc2=s=>s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))
-  const html='<html><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial,sans-serif;white-space:pre-wrap;font-size:11pt">'+esc2($('rewritetext').value)+'</body></html>'
-  download(baseName()+'.doc', html, 'application/msword') }
-$('humanizebtn').onclick = async ()=>{
-  $('resumeerr').textContent=''; const b=$('humanizebtn'),o=b.textContent; b.disabled=true; b.textContent='✨ Humanizing…'
-  try{
-    const { data, error } = await sb.functions.invoke('humanize',{ body:{ text:$('rewritetext').value } })
-    if(error) throw error
-    if(data.error==='no_humanizer'){ $('resumeerr').textContent='Add your AI-Text-Humanizer login in Settings first.' }
-    else if(data.error){ $('resumeerr').textContent=data.error }
-    else { $('rewritetext').value=data.humanized }
-  }catch(err){ $('resumeerr').textContent=await fnMsg(err) }
-  b.disabled=false; b.textContent=o
-}
 
 // settings
 function rp2SecretHint(v){

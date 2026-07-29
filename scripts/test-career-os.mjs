@@ -42,6 +42,9 @@ import { buildSalaryCompare, normalizeTargetBand, targetBandLabel } from '../web
 import {
   classifyEnrichUrl, proposeEnrichCandidates, acceptEnrichCandidate,
 } from '../web/lib/enrich-inbox.mjs'
+import {
+  buildTriageRoleRow, buildMatchReportRow, splitGapsByMaterials, validateTriageAdd, inferRoleLevel,
+} from '../web/lib/jd-triage.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -654,6 +657,41 @@ check('enrichment proposes inbox candidates never auto-promote', () => {
   })
   assert.equal(li.candidates[0].type, 'accomplishment')
   assert.equal(li.candidates[0].item.status, 'inbox')
+})
+
+check('jd triage → sourced role + match artifact', () => {
+  assert.equal(inferRoleLevel('VP Engineering'), 'VP')
+  assert.equal(inferRoleLevel('Director of Product'), 'Director')
+  const err = validateTriageAdd({ company: '', title: 'X', jd: 'y'.repeat(400) })
+  assert.match(err, /Company/)
+  assert.equal(validateTriageAdd({
+    company: 'Acme', title: 'Director', jd: 'Responsibilities: ship product. '.repeat(20),
+  }), null)
+  assert.match(validateTriageAdd({ company: 'Acme', title: 'Director', jd: '' }), /job description/i)
+  const row = buildTriageRoleRow({
+    company: 'Acme',
+    title: 'Director, Platform',
+    url: 'https://boards.greenhouse.io/acme/jobs/1',
+    jd: 'About the role\n\nResponsibilities\n• Lead platform\n\nRequirements\n• 10 years',
+    ghost_risk: 'low',
+  })
+  assert.equal(row.stage, 'sourced')
+  assert.equal(row.source, 'manual')
+  assert.equal(row.company, 'Acme')
+  assert.equal(row.level, 'Director')
+  assert.ok(row.jd.includes('Responsibilities'))
+  const report = buildMatchReportRow({ role_id: 42, match_score: 78, missing_keywords: ['Kubernetes', 'Go'] })
+  assert.equal(report.kind, 'match')
+  assert.equal(report.role_id, 42)
+  assert.equal(report.match_score, 78)
+  assert.deepEqual(report.missing_keywords, ['Kubernetes', 'Go'])
+  const split = splitGapsByMaterials(
+    ['Kubernetes', 'pricing strategy', 'Go'],
+    'Led pricing strategy and GTM for B2B SaaS',
+  )
+  assert.ok(split.inMat.includes('pricing strategy'))
+  assert.ok(split.worth.includes('Kubernetes'))
+  assert.ok(split.worth.includes('Go'))
 })
 
 if (failed) {
