@@ -74,6 +74,31 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'missing mt_interview_events after upgrade';
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'mt_provider_secrets'
+  ) THEN
+    RAISE EXCEPTION 'missing mt_provider_secrets after upgrade';
+  END IF;
+
+  IF NOT (
+    SELECT relrowsecurity FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'mt_provider_secrets'
+  ) THEN
+    RAISE EXCEPTION 'mt_provider_secrets must have RLS enabled after upgrade';
+  END IF;
+
+  -- The vault is service_role-only; a client-facing grant here would leak ciphertext.
+  IF has_table_privilege('authenticated', 'public.mt_provider_secrets', 'SELECT')
+    OR has_table_privilege('anon', 'public.mt_provider_secrets', 'SELECT') THEN
+    RAISE EXCEPTION 'mt_provider_secrets must not be readable by anon/authenticated';
+  END IF;
+
+  IF NOT has_table_privilege('service_role', 'public.mt_provider_secrets', 'SELECT') THEN
+    RAISE EXCEPTION 'mt_provider_secrets must be readable by service_role';
+  END IF;
 END $$;
 
 SELECT 'migration_upgrade_ok' AS result;

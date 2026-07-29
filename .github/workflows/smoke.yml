@@ -51,8 +51,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+      # npm ci, not npm install: the run must fail on lockfile drift rather than
+      # silently resolving a different playwright than the one pinned.
       - name: Install deps
-        run: npm install
+        run: npm ci
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
       - name: Memory → polish reject → promote smoke

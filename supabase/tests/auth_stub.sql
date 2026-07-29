@@ -37,6 +37,13 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-GRANT USAGE ON SCHEMA public TO authenticated, anon;
-GRANT USAGE ON SCHEMA auth TO authenticated, anon;
-GRANT SELECT ON auth.users TO authenticated, anon;
+-- service_role backs the secret-bearing tables (mt_provider_secrets); it bypasses
+-- RLS in Supabase, so the stub must too or vault grants/policies test the wrong thing.
+DO $$ BEGIN
+  CREATE ROLE service_role NOINHERIT BYPASSRLS;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
+GRANT USAGE ON SCHEMA auth TO authenticated, anon, service_role;
+GRANT SELECT ON auth.users TO authenticated, anon, service_role;

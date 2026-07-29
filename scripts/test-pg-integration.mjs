@@ -14,6 +14,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -29,6 +30,7 @@ const PUBLIC_MIGRATIONS = [
   '20260729_career_os_phase2_offers.sql',
   '20260729_career_os_phase3_contacts.sql',
   '20260729_career_os_phase3_comp_salary.sql',
+  '20260729_credential_vault.sql',
   '20260729_schema_hardening.sql',
   '20260729_promote_rpc.sql',
 ]
@@ -155,7 +157,9 @@ function psqlFile(filePath, extraArgs = []) {
 }
 
 function psqlScript(sql) {
-  const tmp = path.join(testsDir, `.tmp-${process.pid}-${Date.now()}.sql`)
+  // Scratch goes to the OS temp dir, not testsDir: fail() exits the process, so
+  // the finally below never runs on a psql error and repo-local scratch survives.
+  const tmp = path.join(os.tmpdir(), `careerops-pg-${process.pid}-${Date.now()}.sql`)
   fs.writeFileSync(tmp, sql)
   try {
     return psqlFile(tmp)
@@ -166,11 +170,13 @@ function psqlScript(sql) {
 
 function resetDatabase() {
   log('reset database')
+  // CURRENT_USER, not a literal postgres: the CI service container and a local
+  // Postgres install do not share an owner role.
   psqlScript(`
 DROP SCHEMA IF EXISTS public CASCADE;
 DROP SCHEMA IF EXISTS auth CASCADE;
 CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO CURRENT_USER;
 GRANT ALL ON SCHEMA public TO public;
 `)
 }

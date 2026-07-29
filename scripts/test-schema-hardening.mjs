@@ -75,7 +75,12 @@ assert.match(appMigration, /COMMENT ON COLUMN app\.accomplishments\.role_id/)
 assert.match(appMigration, /COMMENT ON COLUMN app\.accomplishments\.promoted_role_id/)
 assert.match(appMigration, /ADD COLUMN IF NOT EXISTS humanizer_pw text/)
 assert.match(appMigration, /humanizer_pass/)
-assert.match(appMigration, /CREATE OR REPLACE VIEW public\.mt_profiles/)
+// CREATE OR REPLACE cannot add columns to an existing view, so the app-schema
+// migration drops and recreates it. security_invoker must survive the recreate,
+// otherwise the view would read app.profiles as its definer and bypass RLS.
+assert.match(appMigration, /DROP VIEW IF EXISTS public\.mt_profiles/)
+assert.match(appMigration, /CREATE VIEW public\.mt_profiles\s*\nWITH \(security_invoker=true\) AS/)
+assert.match(appMigration, /GRANT [^;]*ON public\.mt_profiles TO authenticated, anon/)
 assert.doesNotMatch(appMigration, /promote_accomplishment|promote_portfolio/i)
 for (const table of ['profiles', 'roles', 'portfolio_items']) {
   assert.match(

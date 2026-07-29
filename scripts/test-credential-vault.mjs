@@ -44,7 +44,11 @@ assert.doesNotMatch(publicMig, /pgp_sym_encrypt/)
 
 assert.match(appMig, /CREATE TABLE IF NOT EXISTS app\.provider_secrets/)
 assert.match(appMig, /ai_key_on_file/)
-assert.match(appMig, /CREATE OR REPLACE VIEW public\.mt_profiles/)
+// The client view is rebuilt (not REPLACEd) because stripping the secret columns
+// changes its column set. security_invoker must survive the rebuild or the view
+// would read app.profiles as definer and bypass RLS.
+assert.match(appMig, /DROP VIEW IF EXISTS public\.mt_profiles/)
+assert.match(appMig, /CREATE VIEW public\.mt_profiles WITH \(security_invoker=true\)/)
 assert.match(appMig, /NOT IN \(\s*'ai_key'/)
 assert.match(appMig, /humanizer_pw/)
 assert.match(appMig, /mt_provider_secrets/)
