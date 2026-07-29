@@ -85,7 +85,7 @@ Nudge when cadence is due by calendar AND `now > snoozed_until` AND no entry in 
 
 ## Portfolio & advisor
 
-Same sync/provenance doctrine. Portfolio promotes into `resume_struct.projects[]` with `source_type: 'portfolio'`. Advisor briefs separate **Observed in your materials** from **Suggested next skills** (labeled market judgment) and use the same ranked selection — never newest-20.
+Same sync/provenance doctrine. Portfolio promotes into `resume_struct.projects[]` with `source_type: 'portfolio'`. Advisor briefs separate **Observed in your materials** from **Suggested next skills** (labeled market judgment) and use the same ranked selection — never newest-20. Grounded follow-ups live inside Advise (same inputs + doctrine); there is no standalone freeform chat. Follow-up exchanges append to the advisor artifact (`follow_ups` on `mt_reports.kind='advisor'`). Any wording suggested for reuse is draft-only until polish/Accept.
 
 ## Interview events
 

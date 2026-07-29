@@ -24,7 +24,7 @@ import {
 } from '../web/lib/resume-sync.mjs'
 import { buildBoardPack, importBoardPack, planBoardPackUpsert, roundTripOk, BOARD_PACK_SCHEMA_VERSION } from '../web/lib/board-pack.mjs'
 import { createPortfolioItem, acceptPortfolioPolish, setPortfolioPolish, resumeOkItems } from '../web/lib/portfolio.mjs'
-import { buildAdvisorContext, normalizeAdvisorBrief, advisorReportRow } from '../web/lib/advisor.mjs'
+import { buildAdvisorContext, normalizeAdvisorBrief, advisorReportRow, advisorSystemPrompt, advisorFollowUpSystemPrompt, buildAdvisorFollowUpUserMessage, normalizeAdvisorFollowUp, appendAdvisorFollowUp, materialsCorpusFromContext } from '../web/lib/advisor.mjs'
 import {
   readLocalCareerTruth, writeLocalCareerTruth,
   isDurabilityMigrated, markDurabilityMigrated,
@@ -211,6 +211,65 @@ check('advisor brief materials-only + report row', () => {
   const row = advisorReportRow(brief, null)
   assert.equal(row.kind, 'advisor')
   assert.equal(row.role_id, null)
+})
+
+check('advisor grounded follow-up: ranked selection + no unsupported claims', () => {
+  const checked = createAccomplishment('Cut checkout latency 40% at ShopCo', { id: 'fu1', checked: true })
+  const other = createAccomplishment('Wrote internal wiki', { id: 'fu2', checked: false })
+  const ctx = buildAdvisorContext({
+    accomplishments: [other, checked],
+    portfolio: [],
+    profile: { resume_text: 'Engineer at ShopCo', target_titles: ['SRE'], keywords: ['latency'] },
+    checkedIds: ['fu1'],
+    jd: 'latency performance SRE',
+  })
+  assert.equal(ctx.observed_materials.accomplishments[0].id, 'fu1')
+  const corpus = materialsCorpusFromContext(ctx)
+  assert.ok(corpus.toLowerCase().includes('shopco'))
+  assert.ok(corpus.includes('40%') || corpus.includes('40'))
+
+  const brief = normalizeAdvisorBrief({
+    market_read: 'SREs with latency focus are hired',
+    fit: 'Observed: Cut checkout latency 40% at ShopCo',
+    demand_gaps: [],
+  })
+  const sys = advisorFollowUpSystemPrompt()
+  assert.match(sys, /Never invent/i)
+  assert.match(sys, /Observed in your materials/i)
+  assert.match(sys, /polish\/Accept|draft/i)
+
+  const userMsg = buildAdvisorFollowUpUserMessage({
+    question: 'What latency work do I have?',
+    brief,
+    observedMaterials: ctx.observed_materials,
+  })
+  assert.match(userMsg, /Follow-up question/)
+  assert.match(userMsg, /ShopCo|latency/i)
+
+  const good = normalizeAdvisorFollowUp({
+    observed_in_materials: 'Cut checkout latency 40% at ShopCo',
+    suggested_next_steps: ['Consider observability depth — model judgment'],
+    market_notes: 'Latency-focused SRE roles remain active',
+  }, { question: 'What latency work do I have?', corpus })
+  assert.equal(good.claim_check.ok, true)
+  assert.equal(good.suggested_next_steps[0].label, 'model_judgment')
+  assert.equal(good.market_notes.label, 'model_judgment')
+  assert.equal(good.draft_reuse_only, true)
+
+  const bad = normalizeAdvisorFollowUp({
+    observed_in_materials: 'Cut checkout latency 90% at MegaCorp',
+    suggested_next_steps: ['Invented claim'],
+  }, { question: 'q', corpus })
+  assert.equal(bad.claim_check.ok, false)
+  assert.ok(bad.claim_check.unsupported.length >= 1)
+
+  const withFu = appendAdvisorFollowUp(brief, good)
+  assert.equal(withFu.follow_ups.length, 1)
+  assert.equal(withFu.follow_ups[0].question, 'What latency work do I have?')
+  const row = advisorReportRow(withFu, null)
+  const parsed = JSON.parse(row.rewritten)
+  assert.equal(parsed.follow_ups.length, 1)
+  assert.match(advisorSystemPrompt(), /Never invent/i)
 })
 
 check('E2E Generate has no unsupported claims', () => {

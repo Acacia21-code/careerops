@@ -616,7 +616,6 @@
         <button type="button" id="portfoliobtn" title="Portfolio library">🗂 Portfolio</button>
         <button type="button" id="advisorbtn" title="Career advisor brief">🧭 Advise</button>
         <button type="button" id="jdtriagebtn" title="Paste a JD not yet on the board — score it, then add">📋 Triage a JD</button>
-        <button id="chatbtn" class="hidden">💬 Chat</button>
         <button id="settingsbtn">⚙︎ Settings</button>
         <button id="signout">Sign out</button>
       </div>
@@ -1035,18 +1034,6 @@
   </div>
 </div></div>
 
-<!-- chat modal -->
-<div id="chat" class="modal hidden"><div class="box" style="max-width:680px">
-  <div style="display:flex;align-items:center;gap:8px"><h2 style="margin:0;flex:1">💬 Job-search chat</h2><button id="chatclose">Close</button></div>
-  <p class="muted" style="margin:4px 0 8px">Runs on your Anthropic key. It knows your resume — ask it to tailor a bullet, draft outreach, prep an interview, whatever.</p>
-  <div id="chatlog" style="border:1px solid var(--line);border-radius:10px;padding:12px;height:340px;overflow:auto;background:#fafbfc"></div>
-  <div class="err" id="chaterr"></div>
-  <div class="row" style="margin-top:8px;align-items:flex-end">
-    <textarea id="chatin" style="min-height:52px" placeholder="Ask anything about your job search…  (Enter to send, Shift+Enter for newline)"></textarea>
-    <button class="primary" id="chatsend">Send</button>
-  </div>
-</div></div>
-
 <!-- role panel: click a card → JD auto-loads → scan / tailor / download / apply -->
 <div id="rolepanel" class="modal hidden"><div class="box">
   <div style="display:flex;gap:10px;align-items:flex-start">
@@ -1259,7 +1246,7 @@
 <!-- Advisor modal -->
 <div id="advisorModal" class="modal hidden"><div class="box" style="max-width:720px;max-height:90vh;overflow:auto">
   <h2 style="margin:0 0 6px">Career advisor</h2>
-  <p class="muted" style="font-size:12.5px;margin:0 0 12px">Structured brief from <b>ranked</b> memory + portfolio (not newest-20). Past = materials only. Market read is labeled model judgment.</p>
+  <p class="muted" style="font-size:12.5px;margin:0 0 12px">Structured brief from <b>ranked</b> memory + portfolio (not newest-20). Past = materials only. Market read is labeled model judgment. After a brief renders, ask a grounded follow-up — same doctrine, persisted with the advisor artifact.</p>
   <div id="advisor_free_banner" class="hidden stepnote" style="margin-bottom:10px">Free-tier advisor is shorter. Add a BYO key in Settings for a fuller brief.</div>
   <div class="row" style="margin-top:8px">
     <button class="primary" id="advisor_run">Generate advisor brief</button>
@@ -1286,7 +1273,9 @@ import {
   createPortfolioItem, editPortfolioItem, archivePortfolioItem, resumeOkItems,
 } from './lib/portfolio.mjs'
 import {
-  buildAdvisorContext, advisorSystemPrompt, normalizeAdvisorBrief, advisorReportRow,
+  buildAdvisorContext, advisorSystemPrompt, advisorFollowUpSystemPrompt,
+  buildAdvisorFollowUpUserMessage, normalizeAdvisorBrief, normalizeAdvisorFollowUp,
+  appendAdvisorFollowUp, advisorReportRow, materialsCorpusFromContext,
 } from './lib/advisor.mjs'
 import {
   readLocalCareerTruth, writeLocalCareerTruth,
@@ -1685,7 +1674,6 @@ $('o_skip').onclick = async () => {
 function showApp(){
   $('app').classList.remove('hidden'); $('onboard').classList.add('hidden')
   $('hello').textContent = PROFILE?.full_name ? ('· '+PROFILE.full_name) : ''
-  gateChat()
   if(DONATE_URL){ $('donate').href=DONATE_URL; $('donate').style.display='' }
   const needSetup = !PROFILE?.onboarded || !PROFILE?.resume_text
   $('setupbanner').classList.toggle('hidden', !needSetup)
@@ -1695,39 +1683,9 @@ function showApp(){
   }
   load()
 }
-function gateChat(){ $('chatbtn').classList.remove('hidden') }  // free tier means chat works for everyone
 
 // Donations — CareerOps is free forever; shown when CAREEROPS_CONFIG.donateUrl is set
 
-let CHATMSGS=[], CHATMETHOD='claude'
-$('chatbtn').onclick=()=>{ $('chat').classList.remove('hidden'); renderChat(); $('chatin').focus() }
-$('chatclose').onclick=()=> $('chat').classList.add('hidden')
-function renderChat(){
-  const who = CHATMETHOD==='free' ? 'CareerOps AI' : CHATMETHOD==='kimi' ? 'Kimi K3' : 'Claude'
-  $('chatlog').innerHTML = CHATMSGS.length
-    ? CHATMSGS.map(m=>'<div style="margin:8px 0"><b style="color:'+(m.role==='user'?'#111':'#137333')+'">'+(m.role==='user'?'You':who)+':</b> <span style="white-space:pre-wrap">'+esc(m.content)+'</span></div>').join('')
-      + '<div class="muted" style="font-size:11px;margin-top:10px;border-top:1px solid var(--line);padding-top:6px">'+esc(AI_NOTE)+'</div>'
-    : '<div class="muted">Ask it to tailor your resume to a job, draft a LinkedIn note to a hiring manager, prep you for an interview, or sanity-check your search strategy.</div>'
-  $('chatlog').scrollTop=$('chatlog').scrollHeight
-}
-async function sendChat(){
-  const t=$('chatin').value.trim(); if(!t) return
-  $('chaterr').textContent=''; CHATMSGS.push({role:'user',content:t}); $('chatin').value=''; renderChat()
-  const b=$('chatsend'), o=b.textContent; b.disabled=true; b.textContent='…'
-  try{
-    let data=null, error=null; try{ data=await invokeChat(CHATMSGS) }catch(e){ error=e }
-    if(error) throw error
-    if(data.error==='free_limit'){ $('chaterr').textContent=FREE_LIMIT_MSG }
-    else if(data.error==='free_unavailable'||data.error==='free_not_enabled'){ $('chaterr').textContent=FREE_DOWN_MSG }
-    else if(data.error==='no_key'){ $('chaterr').textContent=FREE_DOWN_MSG }
-    else if(data.error){ $('chaterr').textContent=data.error }
-    else if(!data.reply || !data.reply.trim()){ CHATMSGS.pop(); renderChat(); $('chaterr').textContent='Model returned nothing — hit Send again.'; $('chatin').value=t }
-    else { CHATMETHOD=data.method||CHATMETHOD; CHATMSGS.push({role:'assistant',content:data.reply}); renderChat() }
-  }catch(err){ $('chaterr').textContent=await fnMsg(err) }
-  b.disabled=false; b.textContent=o
-}
-$('chatsend').onclick=sendChat
-$('chatin').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat() } })
 $('signout').onclick = async ()=>{ await sb.auth.signOut(); location.reload() }
 $('o_signout').onclick = async ()=>{ await sb.auth.signOut(); location.reload() }
 function closeHdrMenu(){
@@ -5625,7 +5583,7 @@ $('s_save').onclick = async ()=>{
   if(kk && kk!=='remove' && !PROFILE?.kimi_key) missing.push('Kimi key')
   if(he && !PROFILE?.humanizer_email) missing.push('humanizer email')
   if(hp && !PROFILE?.humanizer_pw) missing.push('humanizer password')
-  paintSettingsSecrets(); freeStatus(); paintUsageMeters(); gateChat()
+  paintSettingsSecrets(); freeStatus(); paintUsageMeters()
   b.disabled=false; b.textContent=o
   $('s_key').value=''; $('s_kimi').value=''; $('s_hpw').value=''; if($('s_oai_key')) $('s_oai_key').value=''
   if(missing.length){
@@ -7054,12 +7012,31 @@ $('pf_save')?.addEventListener('click', async ()=>{
   }catch(e){ $('pf_err').textContent=e.message }
 })
 
+let ADVISOR_BRIEF=null, ADVISOR_REPORT_ID=null
+
 function paintAdvisorBrief(brief){
   const el=$('advisor_out'); if(!el) return
+  ADVISOR_BRIEF=brief
   const sk=(brief.suggested_next_skills||[]).map(s=>`<li>${esc(s.text||s)} <span class="chip">model judgment</span></li>`).join('')
   const gaps=(brief.demand_gaps||[]).map(g=>`<li>${esc(typeof g==='string'?g:g.text||JSON.stringify(g))}</li>`).join('')
   const moves=(brief.resume_portfolio_moves||[]).map(m=>`<li>${esc(typeof m==='string'?m:m.text||JSON.stringify(m))}</li>`).join('')
   const plan=(brief.acquisition_plan||[]).map(m=>`<li>${esc(typeof m==='string'?m:m.text||JSON.stringify(m))}</li>`).join('')
+  const fus=(brief.follow_ups||[]).map(f=>{
+    const steps=(f.suggested_next_steps||[]).map(s=>`<li>${esc(s.text||s)} <span class="chip">model judgment</span></li>`).join('')
+    const warn=f.claim_check && f.claim_check.ok===false
+      ? `<p class="err" style="font-size:12px">Some observed claims were not found in materials — treat as unverified draft.</p>`
+      : ''
+    return `<div class="eval-box" style="margin-top:8px">
+      <h4 style="font-size:13px">Q: ${esc(f.question||'')}</h4>
+      <p style="font-size:12.5px;margin:4px 0"><b>Observed in your materials</b></p>
+      <p style="white-space:pre-wrap;margin:0 0 6px">${esc(f.observed_in_materials||'')}</p>
+      ${warn}
+      <p style="font-size:12.5px;margin:4px 0"><b>Suggested next steps</b> <span class="chip">model judgment</span></p>
+      <ul>${steps||'<li class="muted">None</li>'}</ul>
+      ${f.market_notes?.text?`<p class="muted" style="font-size:12px"><span class="chip">model judgment</span> ${esc(f.market_notes.text)}</p>`:''}
+      <p class="muted" style="font-size:11px;margin:4px 0 0">Draft wording only — polish/Accept before it becomes materials.</p>
+    </div>`
+  }).join('')
   el.innerHTML=`
     ${brief.free_tier?'<p class="muted" style="font-size:12px">Shorter free-tier brief.</p>':''}
     <div class="eval-box"><h4>Market read <span class="chip">model judgment</span></h4><p>${esc(brief.market_read?.text||'')}</p></div>
@@ -7073,9 +7050,95 @@ function paintAdvisorBrief(brief){
         <button type="button" class="btn sm" id="advisor_to_pf">Open Portfolio</button>
       </div>
     </div>
+    <div class="eval-box" id="advisor_followup_box" style="margin-top:12px">
+      <h4>Grounded follow-up</h4>
+      <p class="muted" style="font-size:12px;margin:0 0 8px">Same materials + ranked memory as the brief. Observed facts stay separate from suggested next steps. Never invents experience.</p>
+      <div id="advisor_fu_log">${fus||'<p class="muted" style="font-size:12px;margin:0 0 8px">No follow-ups yet.</p>'}</div>
+      <textarea id="advisor_fu_in" style="min-height:52px;width:100%" placeholder="Ask a follow-up grounded in this brief…"></textarea>
+      <div class="row" style="margin-top:8px;align-items:center">
+        <button type="button" class="primary btn sm" id="advisor_fu_send">Ask follow-up</button>
+        <span class="err" id="advisor_fu_err" style="flex:1"></span>
+      </div>
+    </div>
     ${brief.raw_text?`<details style="margin-top:10px"><summary>Raw</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(brief.raw_text)}</pre></details>`:''}`
   $('advisor_to_mem')?.addEventListener('click', ()=>{ $('advisorModal').classList.add('hidden'); openMemoryModal() })
   $('advisor_to_pf')?.addEventListener('click', ()=>{ $('advisorModal').classList.add('hidden'); openPortfolioModal() })
+  $('advisor_fu_send')?.addEventListener('click', ()=>sendAdvisorFollowUp())
+  $('advisor_fu_in')?.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAdvisorFollowUp() } })
+}
+
+async function persistAdvisorBrief(brief){
+  const row=advisorReportRow(brief, null)
+  row.owner=ME?.id||null
+  if(ADVISOR_REPORT_ID){
+    try{
+      const { error }=await sb.from('mt_reports').update({ rewritten:row.rewritten, missing_keywords:row.missing_keywords }).eq('id', ADVISOR_REPORT_ID)
+      if(!error) return
+    }catch(_e){}
+  }
+  try{
+    const { data }=await sb.from('mt_reports').insert(row).select('id').single()
+    if(data?.id) ADVISOR_REPORT_ID=data.id
+  }catch(_e){
+    try{ await sb.from('mt_reports').insert(row) }catch(_e2){}
+  }
+}
+
+async function loadLatestAdvisorBrief(){
+  try{
+    let q=sb.from('mt_reports').select('id,rewritten,created_at').eq('kind','advisor').order('created_at',{ascending:false}).limit(1)
+    if(ME?.id) q=q.eq('owner', ME.id)
+    const { data }=await q
+    const row=(data||[])[0]
+    if(!row?.rewritten) return null
+    ADVISOR_REPORT_ID=row.id
+    return normalizeAdvisorBrief(typeof row.rewritten==='string'?JSON.parse(row.rewritten):row.rewritten)
+  }catch(_e){ return null }
+}
+
+async function sendAdvisorFollowUp(){
+  const q=($('advisor_fu_in')?.value||'').trim(); if(!q||!ADVISOR_BRIEF) return
+  const errEl=$('advisor_fu_err'); if(errEl) errEl.textContent=''
+  const b=$('advisor_fu_send'), o=b?.textContent; if(b){ b.disabled=true; b.textContent='…' }
+  try{
+    await loadAccomplishments(); await loadPortfolioRows()
+    const ctx=buildAdvisorContext({ accomplishments:MEM_ROWS, portfolio:PF_ROWS, profile:PROFILE||{},
+      checkedIds: MEM_ROWS.filter(x=>x.checked).map(x=>x.id),
+      jd: (PROFILE?.target_titles||[]).join(' '),
+      gaps: PROFILE?.keywords||[],
+    })
+    const byo=!!(PROFILE?.ai_key||PROFILE?.kimi_key||loadOpenaiPrefs().key)
+    const userMsg=buildAdvisorFollowUpUserMessage({
+      question:q, brief:ADVISOR_BRIEF, observedMaterials:ctx.observed_materials, freeTier:!byo,
+    })
+    let text=''
+    if(preferClientOpenai()||PROFILE?.ai_key||PROFILE?.kimi_key){
+      try{
+        const out=await openaiChat({ system:advisorFollowUpSystemPrompt(), messages:[{role:'user',content:userMsg}], max_tokens:byo?1200:600, json:true })
+        text=out.text
+      }catch(_e){
+        const data=await invokeChat([{role:'user',content:advisorFollowUpSystemPrompt()+'\n\n'+userMsg}])
+        if(data.error) throw new Error(mapRewriteSoftError(data.error,data)||data.error)
+        text=data.reply||''
+      }
+    }else{
+      const data=await invokeChat([{role:'user',content:advisorFollowUpSystemPrompt()+'\n\n'+userMsg}])
+      if(data.error){ if(errEl) errEl.textContent=mapRewriteSoftError(data.error,data)||data.error; return }
+      text=data.reply||''
+    }
+    if(!text.trim()){ if(errEl) errEl.textContent='Model returned nothing — try again.'; return }
+    const exchange=normalizeAdvisorFollowUp(text, {
+      question:q, free_tier:!byo,
+      model: preferClientOpenai()?'openai-compat':(PROFILE?.ai_key?'claude':'free'),
+      corpus: materialsCorpusFromContext(ctx),
+    })
+    ADVISOR_BRIEF=appendAdvisorFollowUp(ADVISOR_BRIEF, exchange)
+    if($('advisor_fu_in')) $('advisor_fu_in').value=''
+    paintAdvisorBrief(ADVISOR_BRIEF)
+    await persistAdvisorBrief(ADVISOR_BRIEF)
+    logEvent('advisor_followup', null, { free_tier:!byo })
+  }catch(e){ if(errEl) errEl.textContent=e.message||String(e) }
+  finally{ if(b){ b.disabled=false; b.textContent=o||'Ask follow-up' } }
 }
 
 async function openAdvisorModal(){
@@ -7083,6 +7146,12 @@ async function openAdvisorModal(){
   const byo=!!(PROFILE?.ai_key||PROFILE?.kimi_key||loadOpenaiPrefs().key)
   $('advisor_free_banner')?.classList.toggle('hidden', byo)
   $('advisorModal').classList.remove('hidden')
+  if(!ADVISOR_BRIEF){
+    const prev=await loadLatestAdvisorBrief()
+    if(prev) paintAdvisorBrief(prev)
+  }else{
+    paintAdvisorBrief(ADVISOR_BRIEF)
+  }
 }
 $('advisorbtn')?.addEventListener('click', ()=>openAdvisorModal())
 $('advisor_close')?.addEventListener('click', ()=>$('advisorModal').classList.add('hidden'))
@@ -7115,10 +7184,9 @@ Materials (truth):\n${JSON.stringify(ctx.observed_materials).slice(0, byo?12000:
       text=data.reply||''
     }
     const brief=normalizeAdvisorBrief(text, { free_tier:!byo, model: preferClientOpenai()?'openai-compat':(PROFILE?.ai_key?'claude':'free') })
+    ADVISOR_REPORT_ID=null
     paintAdvisorBrief(brief)
-    const row=advisorReportRow(brief, null)
-    row.owner=ME?.id||null
-    try{ await sb.from('mt_reports').insert(row) }catch(_e){}
+    await persistAdvisorBrief(brief)
     logEvent('advisor_brief', null, { free_tier:!byo })
   }catch(e){ $('advisor_err').textContent=e.message||String(e) }
   finally{ b.disabled=false; b.textContent=o }

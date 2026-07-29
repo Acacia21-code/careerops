@@ -110,7 +110,7 @@ Goal: expand surface without violating no-send / no-invent.
 - Show stored posted band on cards/drawer when present
 - User **target band** on profile
 - Compare posted vs target vs structured offer — label gaps as data, not “market average”
-- Advisor/chat may discuss negotiation only from these numbers + user notes
+- Advisor may discuss negotiation only from these numbers + user notes (grounded follow-ups inside Advise — no freeform chat)
 
 **Out of scope:** third-party salary API in v1 (paid, noisy, invents confidence). Revisit later as optional plugin.
 
@@ -148,7 +148,7 @@ Goal: OSS-power-user leverage without silent claim invention.
 
 ### 4.3 Multi-agent workflows (mode chains)
 
-**Today:** discrete skill modes + single chat.
+**Today:** discrete skill modes + grounded Advise follow-ups (materials-ranked; no freeform chat).
 
 **Ship:**
 - Declared **mode chains** (e.g. `evaluate → rank → interview`) over one board pack

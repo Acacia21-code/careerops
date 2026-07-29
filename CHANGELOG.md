@@ -8,6 +8,7 @@ All notable changes to the public CareerOps repo and `@telivity/careerops` are d
 - Bullet memory with provenance (`body_original` immutable, revisions, soft archive, bidirectional promote).
 - Portfolio library (code/design/product) under the same sync/provenance rules.
 - Career advisor brief + skill mode `advise` (materials-only past; labeled market judgment).
+- Grounded Advise follow-ups (ranked materials; observed vs suggested next steps; persisted on `mt_reports.kind='advisor'`). Standalone freeform Chat surface removed.
 - Calendar cadence nudges; ranked Generate selection (checked → role-linked → relevance → recency).
 - Board pack `schema_version` 2 with accomplishments/portfolio round-trip tests.
 - Doctrine: [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md); roadmap Phases 2–4 in [docs/ROADMAP.md](docs/ROADMAP.md).

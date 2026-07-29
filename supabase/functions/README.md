@@ -1,6 +1,6 @@
 # Supabase Edge Functions (CareerOps)
 
-TypeScript edge functions the dashboard SPA invokes for match, tailor, chat, free AI, and configurable ATS search.
+TypeScript edge functions the dashboard SPA invokes for match, tailor, Advise follow-ups (via `chat`), free AI, and configurable ATS search.
 
 ## Functions
 
@@ -8,7 +8,7 @@ TypeScript edge functions the dashboard SPA invokes for match, tailor, chat, fre
 |----------|---------|
 | `resume-match` | Recruiter-style fit score (BYO keys → free tier → keyword overlap) |
 | `resume-rewrite` | Tailor résumé / cover / single bullet (truthful; never invents) |
-| `chat` | Board-aware assistant |
+| `chat` | Frontier invoke path for Advise (brief + grounded follow-ups); not a freeform chat UI |
 | `ai-free` | Shared free-tier LLM proxy (env `FREE_AI_*`) |
 | `run-search-mt` | Scan user-configured Greenhouse / Ashby / Lever boards |
 

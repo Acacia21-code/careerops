@@ -84,7 +84,7 @@ Hard rules in code, not just marketing:
 
 - **Memory**: capture facts with immutable originals, revision history, soft archive, calendar cadence nudges, polish diff/Accept, promote into resume with source links.  
 - **Portfolio**: code / design / product items; `resume_ok` visibility; same promote sync path into `resume_struct.projects[]`.  
-- **Advise**: structured brief separating observed materials from labeled market judgment; skill mode `advise`.
+- **Advise**: structured brief separating observed materials from labeled market judgment; grounded follow-ups persist on the same `mt_reports.kind='advisor'` artifact (no freeform chat surface); skill mode `advise`.
 
 ### 5. Bring your own model + offline skill
 
@@ -196,7 +196,7 @@ Job search boards: default pack is **87** companies in [`supabase/boards.default
 | Path | Purpose |
 |------|---------|
 | `web/` | The dashboard SPA |
-| `supabase/functions/` | Edge functions (match, rewrite, chat, free AI, search) |
+| `supabase/functions/` | Edge functions (match, rewrite, Advise invoke via chat, free AI, search) |
 | `supabase/schema.sql` | Minimal tables + RLS for self-host |
 | `training/` | Optional train/eval *code* (datasets not included) |
 | `.agents/skills/careerops/` | Open Agent Skill |
