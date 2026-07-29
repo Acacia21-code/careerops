@@ -33,6 +33,7 @@ try {
 const checks = [
   ['SKILL.md', fs.existsSync(skill)],
   ['modes/', fs.existsSync(modes)],
+  ['advise mode', fs.existsSync(path.join(modes, 'advise.md'))],
   ['claude symlink/copy', linkOk],
 ]
 
@@ -48,6 +49,12 @@ if (!/never invent|no invent|Never invents/i.test(doctrine)) {
   failed = true
 } else {
   console.log('ok  doctrine string')
+}
+if (!/\badvise\b/i.test(doctrine)) {
+  console.log('FAIL advise mode missing from SKILL.md')
+  failed = true
+} else {
+  console.log('ok  advise mode listed')
 }
 
 fs.rmSync(tmp, { recursive: true, force: true })

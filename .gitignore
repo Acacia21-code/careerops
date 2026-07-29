@@ -67,10 +67,12 @@ career-ops-ux/
 supabase/.temp/
 supabase/**/.temp/
 
-# Allow published edge functions + schema; ignore anything else under supabase/
+# Allow published edge functions + schema + migrations; ignore anything else under supabase/
 supabase/*
 !supabase/functions/
 !supabase/functions/**
+!supabase/migrations/
+!supabase/migrations/**
 !supabase/schema.sql
 !supabase/boards.example.json
 !supabase/boards.default.json

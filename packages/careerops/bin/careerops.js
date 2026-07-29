@@ -102,7 +102,7 @@ Next:
   • Hosted board: https://careerops.telivity.app
   • Self-host: edit web/config.js → deploy web/
   • Offline: Settings → Board pack (skill) → open CareerOps_board_pack.json with an agent
-  • Modes: scan | evaluate | rank | tailor | interview | followup | outcome
+  • Modes: scan | evaluate | rank | tailor | interview | followup | outcome | advise
 `)
 }
 

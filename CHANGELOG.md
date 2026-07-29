@@ -2,6 +2,16 @@
 
 All notable changes to the public CareerOps repo and `@telivity/careerops` are documented here.
 
+## [Unreleased] — Career OS Phase 1
+
+### Added
+- Bullet memory with provenance (`body_original` immutable, revisions, soft archive, bidirectional promote).
+- Portfolio library (code/design/product) under the same sync/provenance rules.
+- Career advisor brief + skill mode `advise` (materials-only past; labeled market judgment).
+- Calendar cadence nudges; ranked Generate selection (checked → role-linked → relevance → recency).
+- Board pack `schema_version` 2 with accomplishments/portfolio round-trip tests.
+- Doctrine: [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md); roadmap Phases 2–4 in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## [1.1.0] — 2026-07-24
 
 ### Added

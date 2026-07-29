@@ -1,7 +1,7 @@
 # CareerOps
 
-**Your private job-search command center.**  
-Find roles across **87 company career boards**, track the pipeline, check fit, and generate tailored drafts from **only what you provide** — then you apply yourself.
+**Open-source operating system for managing your career** — not “AI writes resumes.”  
+Find roles across **87 company career boards**, track the pipeline, capture **bullet memory** with provenance, check fit, and generate tailored drafts from **only what you provide** — then you apply yourself.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/demo-careerops.telivity.app-0ccabf)](https://careerops.telivity.app)
@@ -12,7 +12,7 @@ Find roles across **87 company career boards**, track the pipeline, check fit, a
 **Live demo:** [careerops.telivity.app](https://careerops.telivity.app)  
 **Default Find pack:** **87** verified public company boards (Greenhouse / Ashby / Lever / Workday / SmartRecruiters) — see [`supabase/boards.default.json`](supabase/boards.default.json). Override with your own list.  
 **Model weights (separate):** [CareerOps-4B on Hugging Face](https://huggingface.co/telivity/CareerOps-4B)  
-**Agent skill:** `npx @telivity/careerops@1.1.0 init` (or latest) — modes scan / evaluate / rank / tailor / interview / followup / outcome ([docs](docs/SKILL.md))
+**Agent skill:** `npx @telivity/careerops@1.1.0 init` (or latest) — modes scan / evaluate / rank / tailor / interview / followup / outcome / advise ([docs](docs/SKILL.md))
 
 ---
 
@@ -23,18 +23,21 @@ Most “AI career” tools do one of two things badly:
 1. **Spam boards** and invent experience so the resume “matches.”  
 2. **Dump a wall of text** that you can’t trust in an interview.
 
-CareerOps is built for people running a real search like an ops problem:
+CareerOps is built as a **career OS** for people running a search like an ops problem:
 
 - A **kanban** you actually drag (you own the stages).  
+- **Bullet memory** — institutional evidence between searches (`body_original` immutable; polish needs Accept; promote is bidirectional).  
 - A **decide** surface (drawer): JD, match, materials gaps, Apply / Stretch / Skip as *tags only*.  
-- A **write** surface (builder): pick your bullets → generate → edit → save versions → download Word → open the real JD and apply.
+- A **write** surface (builder): pick your bullets → generate from **ranked** memory (not newest-20) → edit → save versions → download Word → open the real JD and apply.
+- **Portfolio** + **advisor** under the same provenance doctrine.
 
 The product doctrine is blunt and encoded in the UI:
 
 > AI may only improve **truth you already provided**.  
 > Gaps are “in your materials / worth adding?” — not shame.  
 > **Education is yours** — Generate does not rewrite it.  
-> Saving **never overwrites** — every save is a new version.
+> Saving **never overwrites** — every save is a new version.  
+> **`resume_struct` is canonical** — structured edits sync `resume_text` atomically (see [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md)).
 
 ---
 
@@ -74,16 +77,24 @@ Click a card:
 Hard rules in code, not just marketing:
 
 - Inserting a gap **requires** your detail / a checked bullet — it will **not** paste the gap title as a fake accomplishment.  
-- Generate is driven by **checked experience** + materials you added.  
+- Generate is driven by **checked experience** + **ranked bullet memory** (checked → role-linked → relevance; recency tie-break only) + materials you added.  
 - Versions are **append-only** with human names like `Company — Role — date`.
 
-### 4. Bring your own model + offline skill
+### 4. Memory · Portfolio · Advise
+
+- **Memory**: capture facts with immutable originals, revision history, soft archive, calendar cadence nudges, polish diff/Accept, promote into resume with source links.  
+- **Portfolio**: code / design / product items; `resume_ok` visibility; same promote sync path into `resume_struct.projects[]`.  
+- **Advise**: structured brief separating observed materials from labeled market judgment; skill mode `advise`.
+
+### 5. Bring your own model + offline skill
 
 - Optional **BYO** keys in Settings: Anthropic (Claude), Kimi, or any **OpenAI-compatible** base URL + key + model (your bill). Free-tier messaging when no key.  
-- **Board pack** export (Settings → Your data): sanitized JSON for local agent skill runs — API keys never included.  
-- Agent skill via `npx @telivity/careerops init` — modes scan / evaluate / rank / tailor / interview / followup / outcome.  
+- **Board pack** export (Settings → Your data): sanitized JSON (`schema_version` 2) for local agent skill runs — API keys never included; includes accomplishments + portfolio provenance.  
+- Agent skill via `npx @telivity/careerops init` — modes scan / evaluate / rank / tailor / interview / followup / outcome / advise.  
 - Exports strip API keys. Event logging stores **action names / ids**, not resume or JD text.  
 - Banner doctrine: treat AI text as a draft; **never invent** experience; you apply on the employer site.
+
+Roadmap (Phases 2–4): [docs/ROADMAP.md](docs/ROADMAP.md). Positioning backlog: [docs/POSITIONING.md](docs/POSITIONING.md).
 
 ---
 

@@ -594,6 +594,9 @@
       <button type="button" class="hdr-more" id="hdr_more" aria-expanded="false" aria-controls="hdr_cluster" title="More actions">⋯</button>
       <div class="hdr-cluster" id="hdr_cluster">
         <a id="donate" class="hdr-link" href="#" target="_blank" rel="noopener" style="display:none">☕ Support CareerOps</a>
+        <button type="button" id="memorybtn" title="Bullet memory — capture facts with provenance">🧠 Memory</button>
+        <button type="button" id="portfoliobtn" title="Portfolio library">🗂 Portfolio</button>
+        <button type="button" id="advisorbtn" title="Career advisor brief">🧭 Advise</button>
         <button id="resumebtn">📄 Resume tool</button>
         <button id="chatbtn" class="hidden">💬 Chat</button>
         <button id="settingsbtn">⚙︎ Settings</button>
@@ -603,6 +606,16 @@
   </header>
   <div class="muted" id="status" style="padding:8px 18px 0;font-size:13px"></div>
   <div id="setupbanner" class="hidden" style="margin:8px 18px 0;padding:9px 14px;background:#fff8e6;border:1px solid #f0dfa8;border-radius:10px;font-size:13px"></div>
+  <div id="cadence_nudge" class="hidden" style="margin:8px 18px 0;padding:10px 14px;background:#e8f8f6;border:1px solid #b7ebe6;border-radius:10px;font-size:13px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <span style="flex:1;min-width:200px"><b>Bullet memory due.</b> Capture one real accomplishment from this period — promotion doesn’t count as logging.</span>
+    <button type="button" class="btn sm primary" id="cadence_open">Log now</button>
+    <button type="button" class="btn sm" id="cadence_snooze">Snooze 7 days</button>
+    <button type="button" class="btn sm ghost" id="cadence_dismiss">Dismiss</button>
+  </div>
+  <div id="reconcile_banner" class="hidden" style="margin:8px 18px 0;padding:10px 14px;background:#fff8e6;border:1px solid #f0dfa8;border-radius:10px;font-size:13px">
+    <b>Structured resume modified — reconcile.</b> Experience/Projects were updated from Memory or Portfolio. Review Settings → Resume, then mark reconciled.
+    <button type="button" class="btn sm" id="reconcile_ack" style="margin-left:8px">Mark reconciled</button>
+  </div>
   <div id="followups" class="fu-bar hidden"></div>
   <div id="triage" class="triage-bar hidden">
     <button type="button" class="btn sm primary" id="triage_batch">Rank Sourced (batch match)</button>
@@ -1079,11 +1092,100 @@
     <button id="exp_csv">⬇︎ Export board (CSV)</button>
     <button id="exp_boardpack" title="Roles + materials + reports for local skill runs">⬇︎ Board pack (skill)</button>
   </div>
-  <p class="muted" style="font-size:12px;margin:8px 0 0">Board pack is a sanitized ZIP-ready JSON for agent skill modes (scan/evaluate/rank/tailor/…). API keys are never included.</p>
+  <p class="muted" style="font-size:12px;margin:8px 0 0">Board pack is a sanitized ZIP-ready JSON for agent skill modes (scan/evaluate/rank/tailor/advise/…). API keys are never included. Includes bullet memory + portfolio with provenance (schema_version 2).</p>
+
+  <h3 style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">Bullet memory cadence</h3>
+  <p class="muted" style="font-size:12.5px;margin:0 0 8px">Calendar reminders to capture facts — not “days since last entry.” Promotion does not count as logging.</p>
+  <div class="row">
+    <div><label>Cadence</label>
+      <select id="s_cadence">
+        <option value="off">Off</option>
+        <option value="biweekly">Biweekly (anchor days)</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+    <div><label>Anchor days <span class="h">e.g. 1,15</span></label><input id="s_cadence_anchor" placeholder="1,15"></div>
+    <div><label>Timezone</label><input id="s_cadence_tz" placeholder="America/Chicago"></div>
+  </div>
+</div></div>
+
+<!-- Bullet memory modal -->
+<div id="memoryModal" class="modal hidden"><div class="box" style="max-width:720px;max-height:90vh;overflow:auto">
+  <h2 style="margin:0 0 6px">Bullet memory</h2>
+  <p class="muted" style="font-size:12.5px;margin:0 0 12px">Capture real accomplishments. <b>Original text stays immutable</b>. AI polish needs Accept. Promote writes both ways into your structured resume.</p>
+  <label>New accomplishment</label>
+  <textarea id="mem_body" style="min-height:70px" placeholder="What you did — metrics only if true"></textarea>
+  <div class="row">
+    <div><label>Link to resume role <span class="h">optional</span></label><select id="mem_role"><option value="">— none —</option></select></div>
+    <div><label>Employer <span class="h">free text</span></label><input id="mem_employer" placeholder="Acme"></div>
+    <div><label>Project <span class="h">free text</span></label><input id="mem_project" placeholder="Checkout rewrite"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button class="primary" id="mem_save">Save to memory</button>
+    <button id="mem_close" style="margin-left:auto">Close</button>
+  </div>
+  <div class="err" id="mem_err"></div>
+  <div id="mem_list" style="margin-top:16px"></div>
+  <div id="mem_polish" class="hidden" style="margin-top:14px;padding:12px;border:1px solid var(--hair);border-radius:12px;background:var(--surface-2)">
+    <h4 style="margin:0 0 8px">Polish candidate — Accept to apply</h4>
+    <p class="muted" style="font-size:12px;margin:0 0 8px" id="mem_polish_meta"></p>
+    <div id="mem_diff" style="font-size:13px;line-height:1.5;margin-bottom:10px"></div>
+    <div class="row"><button class="primary" id="mem_accept">Accept polish</button><button id="mem_reject">Reject</button></div>
+  </div>
+</div></div>
+
+<!-- Portfolio modal -->
+<div id="portfolioModal" class="modal hidden"><div class="box" style="max-width:720px;max-height:90vh;overflow:auto">
+  <h2 style="margin:0 0 6px">Portfolio</h2>
+  <p class="muted" style="font-size:12.5px;margin:0 0 12px">Code / design / product proof. Same provenance as memory. Only <b>resume_ok</b> items feed the builder. Promote uses the atomic resume sync path.</p>
+  <div class="row">
+    <div><label>Title</label><input id="pf_title" placeholder="Open-source CLI"></div>
+    <div><label>Type</label><select id="pf_type"><option value="code">Code</option><option value="design">Design</option><option value="product">Product</option><option value="other">Other</option></select></div>
+    <div><label>Visibility</label><select id="pf_vis"><option value="private">Private</option><option value="resume_ok">Resume OK</option></select></div>
+  </div>
+  <label>URL <span class="h">optional</span></label><input id="pf_url" placeholder="https://…">
+  <label>Summary / bullets</label><textarea id="pf_summary" style="min-height:80px" placeholder="What it is — true facts only"></textarea>
+  <label>Tags <span class="h">comma-separated</span></label><input id="pf_tags" placeholder="typescript, design-system">
+  <div class="row" style="margin-top:10px">
+    <button class="primary" id="pf_save">Save portfolio item</button>
+    <button id="pf_close" style="margin-left:auto">Close</button>
+  </div>
+  <div class="err" id="pf_err"></div>
+  <div id="pf_list" style="margin-top:16px"></div>
+</div></div>
+
+<!-- Advisor modal -->
+<div id="advisorModal" class="modal hidden"><div class="box" style="max-width:720px;max-height:90vh;overflow:auto">
+  <h2 style="margin:0 0 6px">Career advisor</h2>
+  <p class="muted" style="font-size:12.5px;margin:0 0 12px">Structured brief from <b>ranked</b> memory + portfolio (not newest-20). Past = materials only. Market read is labeled model judgment.</p>
+  <div id="advisor_free_banner" class="hidden stepnote" style="margin-bottom:10px">Free-tier advisor is shorter. Add a BYO key in Settings for a fuller brief.</div>
+  <div class="row" style="margin-top:8px">
+    <button class="primary" id="advisor_run">Generate advisor brief</button>
+    <button id="advisor_close" style="margin-left:auto">Close</button>
+  </div>
+  <div class="err" id="advisor_err"></div>
+  <div id="advisor_out" style="margin-top:14px"></div>
 </div></div>
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  createAccomplishment, editAccomplishment, archiveAccomplishment,
+  setPolishCandidate, acceptPolish, rejectPolish, wordDiff,
+} from './lib/bullet-memory.mjs'
+import { shouldNudge, recordNewCapture, recordPrompted, snoozeUntil } from './lib/cadence.mjs'
+import { rankForGenerate, assertNoUnsupportedClaims } from './lib/generate-rank.mjs'
+import {
+  promoteAccomplishment, promotePortfolio, healSourceLinks,
+  renderResumeTextFromStruct, healBulletsPreserveSource, stableRoleKey,
+} from './lib/resume-sync.mjs'
+import { buildBoardPack } from './lib/board-pack.mjs'
+import {
+  createPortfolioItem, editPortfolioItem, archivePortfolioItem, resumeOkItems,
+} from './lib/portfolio.mjs'
+import {
+  buildAdvisorContext, advisorSystemPrompt, normalizeAdvisorBrief, advisorReportRow,
+} from './lib/advisor.mjs'
 const SUPABASE_URL = 'https://vqcjdqhcdhxjlznpqing.supabase.co'
 const SUPABASE_KEY = 'sb_publishable_nNiBFGj8_NHI2vksvZEpFw_D30oUi5x'
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -2068,6 +2170,20 @@ async function load(){
   ROLESMAP = Object.fromEntries((roles||[]).map(r=>[r.id,r]))
   HASDOC = new Set((reps||[]).filter(x=>x.kind==='resume'||x.kind==='cover').map(x=>x.role_id))
   FIND_PREFS = loadFindPrefs()
+  paintCadenceNudge()
+  paintReconcileBanner()
+  loadAccomplishments().then(()=>loadPortfolioRows()).then(async ()=>{
+    if(PROFILE?.resume_struct && MEM_ROWS?.length){
+      try{
+        const healed=healSourceLinks(PROFILE.resume_struct, MEM_ROWS)
+        PROFILE.resume_struct=healed.struct
+        for(const a of healed.accomplishments){
+          const prev=MEM_ROWS.find(x=>x.id===a.id)
+          if(prev && prev.status!==a.status) await upsertAccomplishmentRow(a)
+        }
+      }catch(_e){}
+    }
+  }).catch(()=>{})
   const byStage={}; for(const s of [...STAGES,CLOSED]) byStage[s]=[]
   let hiddenN=0
   for(const r of (roles||[])){
@@ -3734,9 +3850,12 @@ function rp2HealBullets(bullets){
     if(!t) continue
     if(out.length && rp2ShouldMergeBullets(out[out.length-1].text, t)){
       out[out.length-1].text=rp2CleanBulletText(out[out.length-1].text+' '+t)
+      // keep earliest source link when merging
       continue
     }
-    out.push({ id:b.id || ('b'+out.length), text:t })
+    const row={ id:b.id || ('b'+out.length), text:t }
+    if(b.source_type){ row.source_type=b.source_type; row.source_id=b.source_id }
+    out.push(row)
   }
   // Second pass — catch A+B+C wraps
   let changed=true
@@ -3920,11 +4039,20 @@ async function rp2LoadPick(id){
 function rp2NormalizeStruct(struct){
   if(!struct) return struct
   const out={
-    roles:(struct.roles||[]).map(r=>({header:r.header,sub:r.sub||'',bullets:rp2HealBullets(r.bullets||[])})),
+    roles:(struct.roles||[]).map(r=>{
+      const id=r.id||stableRoleKey(r)
+      return { id, header:r.header, sub:r.sub||'', bullets:healBulletsPreserveSource(rp2HealBullets(r.bullets||[])) }
+    }),
     summary:struct.summary||'',
-    skills:rp2HealBullets(struct.skills||[]),
-    education:rp2HealBullets(struct.education||[]),
-    certs:rp2HealBullets(struct.certs||[]),
+    skills:healBulletsPreserveSource(rp2HealBullets(struct.skills||[])),
+    education:healBulletsPreserveSource(rp2HealBullets(struct.education||[])),
+    certs:healBulletsPreserveSource(rp2HealBullets(struct.certs||[])),
+    projects:(struct.projects||[]).map(p=>({
+      ...p,
+      id:p.id||crypto.randomUUID?.()||('p_'+Math.random().toString(16).slice(2)),
+      bullets:healBulletsPreserveSource(p.bullets||[]),
+      ...(p.source_type?{ source_type:p.source_type, source_id:p.source_id }:{}),
+    })),
   }
   for(const r of out.roles){
     const keep=[], lift=[]
@@ -4147,6 +4275,15 @@ async function rp2LoadGaps(){
 }
 function rp2GapBrief(gaps, { repair=false }={}){
   const extra=getMaterials(CURROLE?.id).map(x=>String(x.text||'').trim()).filter(Boolean)
+  let memoryLines=[]
+  try{
+    const ranked=rankedMemoryMaterials(($('rp2_jd')?.value||CURROLE?.jd||''), gaps)
+    memoryLines=ranked.map(a=>String(a.body_current||'').trim()).filter(Boolean)
+  }catch(_e){}
+  let portfolioLines=[]
+  try{
+    portfolioLines=resumeOkItems(PF_ROWS||[]).map(p=>[p.title,p.summary,p.body_current].filter(Boolean).join(' — ')).filter(Boolean)
+  }catch(_e){}
   const lines=[
     'CareerOps draft requirements (follow strictly):',
     '1) Output ONLY a resume. Exact section headers, in this order:',
@@ -4157,13 +4294,21 @@ function rp2GapBrief(gaps, { repair=false }={}){
     '   (optional) CERTIFICATIONS',
     '2) Education / degrees / universities are ONLY under EDUCATION — never under a job.',
     '3) SKILLS must be a real bullet list. Prefer JD/ATS keywords only when already in Experience or added materials.',
-    '4) Use ONLY facts the user supplied (resume + added materials). Do not invent employers, titles, degrees, dates, or metrics.',
+    '4) Use ONLY facts the user supplied (resume + added materials + ranked bullet memory). Do not invent employers, titles, degrees, dates, or metrics.',
     '5) Keep contact line at top if present. No markdown fences, no preamble, no “here is your resume”.',
     '6) Capability boundary: if a gap is not already in supplied materials, omit it quietly — do not invent it, and do not lecture or use “cannot claim” / shame language.',
   ]
   if(extra.length){
     lines.push('Added materials from the user (treat as truth):')
     for(const t of extra.slice(0,20)) lines.push('   - '+t)
+  }
+  if(memoryLines.length){
+    lines.push('Bullet memory (ranked: checked → role-linked → relevance; recency tie-break only):')
+    for(const t of memoryLines.slice(0,20)) lines.push('   - '+t)
+  }
+  if(portfolioLines.length){
+    lines.push('Portfolio (resume_ok only):')
+    for(const t of portfolioLines.slice(0,10)) lines.push('   - '+t)
   }
   try{
     const stories=storyList().slice(0,10)
@@ -4388,6 +4533,13 @@ $('rp2_generate').onclick=async()=>{
         }
         enforceMeta=rp2EnforceResumeDraft(finalText, { gaps, assemble:assembleForLock })
         finalText=enforceMeta.text
+        try{
+          const corpus=[baseResume, brief, ...(MEM_ROWS||[]).map(a=>a.body_current), ...(PF_ROWS||[]).map(p=>[p.title,p.summary,p.body_current].join(' '))].join('\n')
+          const claimCheck=assertNoUnsupportedClaims(finalText, corpus)
+          if(!claimCheck.ok){
+            rp2ShowErr('Draft may invent claims not in your materials — review before sending: '+claimCheck.unsupported.slice(0,3).join('; '))
+          }
+        }catch(_e){}
         if(!enforceMeta.quality.ok){
           b.textContent='✨ Fixing draft structure…'; if(be) be.textContent=b.textContent
           const repairBody={
@@ -4775,6 +4927,9 @@ $('settingsbtn').onclick=()=>{
   if($('s_remote_pref')) $('s_remote_pref').value=FIND_PREFS.remote_pref||'any'
   if($('s_hide_blocked')) $('s_hide_blocked').checked=FIND_PREFS.hide_filtered!==false
   if($('s_dealbreakers')) $('s_dealbreakers').value=(FIND_PREFS.dealbreakers||[]).join(', ')
+  if($('s_cadence')) $('s_cadence').value=PROFILE?.bullet_memory_cadence||'off'
+  if($('s_cadence_anchor')) $('s_cadence_anchor').value=PROFILE?.cadence_anchor||'1,15'
+  if($('s_cadence_tz')) $('s_cadence_tz').value=PROFILE?.cadence_timezone||(Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC')
   // Never put secrets back into password inputs — browsers / screenshots. Status line shows what's stored.
   $('s_key').value=''; $('s_kimi').value=''; $('s_hemail').value=PROFILE?.humanizer_email||''; $('s_hpw').value=''
   const oai=loadOpenaiPrefs()
@@ -4818,36 +4973,21 @@ $('exp_boardpack')?.addEventListener('click', async ()=>{
     sb.from('mt_roles').select('*'),
     sb.from('mt_reports').select('*')
   ])
+  await loadAccomplishments(); await loadPortfolioRows()
   const p = prof&&prof[0] ? {...prof[0]} : null
-  if(p){ delete p.ai_key; delete p.kimi_key; delete p.humanizer_pw }
-  const pack = {
-    format: 'careerops-board-pack/v1',
-    exported_at: new Date().toISOString(),
-    doctrine: { no_auto_apply: true, no_invented_facts: true },
-    profile: p ? {
-      full_name: p.full_name, email: p.email, location: p.location,
-      target_titles: p.target_titles, keywords: p.keywords, seniority: p.seniority, locations: p.locations,
-      resume_text: p.resume_text
-    } : null,
+  if(p){ delete p.ai_key; delete p.kimi_key; delete p.humanizer_pw; delete p.openai_key }
+  const pack = buildBoardPack({
+    profile: p,
+    roles: roles||[],
+    reports: reports||[],
+    accomplishments: MEM_ROWS||[],
+    portfolio: PF_ROWS||[],
     stories: loadStories(),
     find_prefs: loadFindPrefs(),
-    roles: (roles||[]).map(r=>({
-      id:r.id, company:r.company, title:r.title, stage:r.stage, url:r.url, jd:r.jd,
-      match_score:r.match_score, fit_score:r.fit_score, ghost_risk:r.ghost_risk,
-      created_at:r.created_at, level:r.level
-    })),
-    materials: (reports||[]).filter(x=>x.kind==='resume'||x.kind==='cover'||x.kind==='jobscan').map(x=>({
-      id:x.id, role_id:x.role_id, kind:x.kind, match_score:x.match_score,
-      rewritten:x.rewritten, created_at:x.created_at
-    })),
-    reports: (reports||[]).filter(x=>x.kind==='match'||x.kind==='evaluate').map(x=>({
-      id:x.id, role_id:x.role_id, kind:x.kind, match_score:x.match_score,
-      missing_keywords:x.missing_keywords, rewritten:x.rewritten, created_at:x.created_at
-    })),
     outcomes: (()=>{ try{ return JSON.parse(localStorage.getItem('co_outcomes_'+(ME?.id||''))||'{}') }catch(_e){ return {} } })(),
-  }
+  })
   download('CareerOps_board_pack.json', JSON.stringify(pack,null,2), 'application/json')
-  logEvent('export_board_pack', null, { roles:(roles||[]).length, materials:pack.materials.length, reports:pack.reports.length })
+  logEvent('export_board_pack', null, { roles:(roles||[]).length, materials:pack.materials.length, reports:pack.reports.length, accomplishments:(pack.accomplishments||[]).length })
 })
 $('s_save').onclick = async ()=>{
   $('seterr').textContent=''
@@ -4867,12 +5007,25 @@ $('s_save').onclick = async ()=>{
   })
   const upd={ target_titles:list($('s_titles').value), keywords:list($('s_keywords').value),
     seniority:list($('s_seniority').value.toLowerCase()), locations:list($('s_locations').value), resume_text:$('s_resume').value }
+  if($('s_cadence')) upd.bullet_memory_cadence=$('s_cadence').value||'off'
+  if($('s_cadence_anchor')) upd.cadence_anchor=($('s_cadence_anchor').value||'1,15').trim()
+  if($('s_cadence_tz')) upd.cadence_timezone=($('s_cadence_tz').value||'UTC').trim()
   const k=$('s_key').value.trim(); if(k==='remove') upd.ai_key=null; else if(k) upd.ai_key=k
   const kk=$('s_kimi').value.trim(); if(kk==='remove') upd.kimi_key=null; else if(kk) upd.kimi_key=kk
   const he=$('s_hemail').value.trim(); const hp=$('s_hpw').value.trim()
   if(he) upd.humanizer_email=he; else if(PROFILE?.humanizer_email && he==='') upd.humanizer_email=null
   if(hp) upd.humanizer_pw=hp
-  const { error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id)
+  let { error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id)
+  if(error && /bullet_memory_cadence|cadence_timezone|cadence_anchor|column/i.test(error.message||'')){
+    // Phase 1 migration not applied yet — keep core settings working
+    if(PROFILE){
+      PROFILE.bullet_memory_cadence=upd.bullet_memory_cadence
+      PROFILE.cadence_anchor=upd.cadence_anchor
+      PROFILE.cadence_timezone=upd.cadence_timezone
+    }
+    delete upd.bullet_memory_cadence; delete upd.cadence_anchor; delete upd.cadence_timezone
+    ;({ error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id))
+  }
   if(error){ $('seterr').textContent=error.message; b.disabled=false; b.textContent=o; return }
   // Re-read from DB so we know what actually stuck (RLS / column issues surface here)
   const { data:fresh, error:rerr } = await sb.from('mt_profiles').select('*').eq('owner',ME.id).maybeSingle()
@@ -5437,6 +5590,460 @@ $('triage_empty_closed')?.addEventListener('click', async ()=>{
   try{ await emptyClosedRoles() }
   finally{ if(b){ b.disabled=false; b.textContent=o||'Empty Closed' } }
 })
+
+// ==== Career OS Phase 1: bullet memory / portfolio / advisor / cadence ====
+let MEM_ROWS=[], PF_ROWS=[], MEM_POLISH_ID=null, MEM_DB_OK=true, PF_DB_OK=true
+
+function memLocalKey(){ return 'co_accomplishments_'+(ME?.id||'anon') }
+function pfLocalKey(){ return 'co_portfolio_'+(ME?.id||'anon') }
+function loadMemLocal(){ try{ return JSON.parse(localStorage.getItem(memLocalKey())||'[]')||[] }catch(_e){ return [] } }
+function saveMemLocal(rows){ localStorage.setItem(memLocalKey(), JSON.stringify(rows||[])); return rows }
+function loadPfLocal(){ try{ return JSON.parse(localStorage.getItem(pfLocalKey())||'[]')||[] }catch(_e){ return [] } }
+function savePfLocal(rows){ localStorage.setItem(pfLocalKey(), JSON.stringify(rows||[])); return rows }
+
+async function loadAccomplishments(){
+  if(!ME?.id){ MEM_ROWS=loadMemLocal(); return MEM_ROWS }
+  try{
+    const { data, error } = await sb.from('mt_accomplishments').select('*').eq('owner',ME.id).order('created_at',{ascending:false})
+    if(error) throw error
+    MEM_DB_OK=true
+    MEM_ROWS=data||[]
+    saveMemLocal(MEM_ROWS)
+  }catch(_e){
+    MEM_DB_OK=false
+    MEM_ROWS=loadMemLocal()
+  }
+  return MEM_ROWS
+}
+async function upsertAccomplishmentRow(row){
+  if(MEM_DB_OK && ME?.id){
+    try{
+      const payload={ ...row, owner:ME.id }
+      delete payload._rank
+      const { data, error } = await sb.from('mt_accomplishments').upsert(payload).select().maybeSingle()
+      if(error) throw error
+      if(data) row=data
+    }catch(_e){ MEM_DB_OK=false }
+  }
+  const all=loadMemLocal()
+  const i=all.findIndex(x=>x.id===row.id)
+  if(i>=0) all[i]=row; else all.unshift(row)
+  saveMemLocal(all)
+  MEM_ROWS=all
+  return row
+}
+async function loadPortfolioRows(){
+  if(!ME?.id){ PF_ROWS=loadPfLocal(); return PF_ROWS }
+  try{
+    const { data, error } = await sb.from('mt_portfolio_items').select('*').eq('owner',ME.id).order('created_at',{ascending:false})
+    if(error) throw error
+    PF_DB_OK=true
+    PF_ROWS=data||[]
+    savePfLocal(PF_ROWS)
+  }catch(_e){
+    PF_DB_OK=false
+    PF_ROWS=loadPfLocal()
+  }
+  return PF_ROWS
+}
+async function upsertPortfolioRow(row){
+  if(PF_DB_OK && ME?.id){
+    try{
+      const payload={ ...row, owner:ME.id }
+      delete payload._rank
+      const { data, error } = await sb.from('mt_portfolio_items').upsert(payload).select().maybeSingle()
+      if(error) throw error
+      if(data) row=data
+    }catch(_e){ PF_DB_OK=false }
+  }
+  const all=loadPfLocal()
+  const i=all.findIndex(x=>x.id===row.id)
+  if(i>=0) all[i]=row; else all.unshift(row)
+  savePfLocal(all)
+  PF_ROWS=all
+  return row
+}
+
+async function persistResumeSync(result){
+  if(!PROFILE) return
+  PROFILE.resume_struct=result.struct
+  PROFILE.resume_text=result.resume_text
+  PROFILE.resume_struct_rev=result.resume_struct_rev
+  PROFILE.structured_modified_at=result.structured_modified_at
+  PROFILE.resume_reconcile_needed=!!result.resume_reconcile_needed
+  const upd={
+    resume_struct: PROFILE.resume_struct,
+    resume_text: PROFILE.resume_text,
+    resume_struct_rev: PROFILE.resume_struct_rev,
+    structured_modified_at: PROFILE.structured_modified_at,
+    resume_reconcile_needed: PROFILE.resume_reconcile_needed,
+  }
+  try{
+    const { error } = await sb.from('mt_profiles').update(upd).eq('owner',ME.id)
+    if(error){
+      // columns may not exist yet — still keep local PROFILE in sync
+      console.warn('[resume-sync]', error.message)
+    }
+  }catch(e){ console.warn('[resume-sync]', e) }
+  paintReconcileBanner()
+  if($('s_resume')) $('s_resume').value=PROFILE.resume_text||''
+}
+
+function paintReconcileBanner(){
+  const el=$('reconcile_banner')
+  if(!el) return
+  el.classList.toggle('hidden', !PROFILE?.resume_reconcile_needed)
+}
+
+function fillMemRoleSelect(){
+  const sel=$('mem_role'); if(!sel) return
+  const roles=(PROFILE?.resume_struct?.roles||[]).map(r=>{
+    if(!r.id) r.id=stableRoleKey(r)
+    return r
+  })
+  sel.innerHTML='<option value="">— none —</option>'+roles.map(r=>`<option value="${esc(r.id)}">${esc(r.header||r.id)}</option>`).join('')
+}
+
+function renderMemDiff(from, to){
+  const parts=wordDiff(from, to)
+  return parts.map(p=>{
+    if(p.type==='eq') return esc(p.text)
+    if(p.type==='ins') return `<span style="background:#dcf3ee;color:#0a8577">${esc(p.text)}</span>`
+    return `<span style="background:#fff0f0;color:#b42318;text-decoration:line-through">${esc(p.text)}</span>`
+  }).join('')
+}
+
+function renderMemList(){
+  const wrap=$('mem_list'); if(!wrap) return
+  const rows=(MEM_ROWS||[]).filter(r=>r.status!=='archived')
+  if(!rows.length){ wrap.innerHTML='<p class="muted" style="font-size:13px">No accomplishments yet — capture one above.</p>'; return }
+  wrap.innerHTML=rows.map(r=>{
+    const st=r.status||'inbox'
+    const orig=r.body_original!==r.body_current?`<div class="muted" style="font-size:11.5px;margin-top:4px">Original: ${esc(r.body_original)}</div>`:''
+    const promo=r.promoted_bullet_id?`<span class="chip">promoted</span>`:''
+    const orphan=st==='orphaned'?`<span class="chip miss">orphaned — repair</span>`:''
+    return `<div class="card" style="padding:12px;margin:8px 0" data-mem="${esc(r.id)}">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <label style="margin:0;font-weight:400"><input type="checkbox" data-mem-check="${esc(r.id)}" ${r.checked?'checked':''} style="width:auto"></label>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;line-height:1.45">${esc(r.body_current)}</div>
+          ${orig}
+          <div class="muted" style="font-size:11.5px;margin-top:6px">${esc(st)} ${promo} ${orphan}
+            ${r.employer?' · '+esc(r.employer):''}${r.project?' · '+esc(r.project):''}
+            ${!MEM_DB_OK?' · local only':''}
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button type="button" class="btn sm" data-mem-edit="${esc(r.id)}">Edit</button>
+            <button type="button" class="btn sm" data-mem-polish="${esc(r.id)}">Polish</button>
+            <button type="button" class="btn sm primary" data-mem-promote="${esc(r.id)}">Promote</button>
+            <button type="button" class="btn sm" data-mem-hist="${esc(r.id)}">History</button>
+            <button type="button" class="btn sm danger-ghost" data-mem-arch="${esc(r.id)}">Archive</button>
+          </div>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+  wrap.querySelectorAll('[data-mem-check]').forEach(cb=>cb.onchange=async()=>{
+    const id=cb.dataset.memCheck
+    const row=MEM_ROWS.find(x=>x.id===id); if(!row) return
+    row.checked=cb.checked
+    await upsertAccomplishmentRow(row)
+  })
+  wrap.querySelectorAll('[data-mem-edit]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.memEdit
+    const row=MEM_ROWS.find(x=>x.id===id); if(!row) return
+    const next=prompt('Edit working text (original stays immutable):', row.body_current)
+    if(next==null) return
+    try{
+      const edited=editAccomplishment(row, next)
+      await upsertAccomplishmentRow(edited)
+      renderMemList()
+    }catch(e){ $('mem_err').textContent=e.message }
+  })
+  wrap.querySelectorAll('[data-mem-hist]').forEach(b=>b.onclick=()=>{
+    const row=MEM_ROWS.find(x=>x.id===b.dataset.memHist); if(!row) return
+    const lines=[`Original: ${row.body_original}`, `Current: ${row.body_current}`, ...(row.revisions||[]).map(r=>`${r.at} [${r.source}] ${r.body}`)]
+    alert(lines.join('\n\n'))
+  })
+  wrap.querySelectorAll('[data-mem-arch]').forEach(b=>b.onclick=async()=>{
+    const row=MEM_ROWS.find(x=>x.id===b.dataset.memArch); if(!row) return
+    if(!confirm('Archive this accomplishment? (soft archive — not deleted)')) return
+    await upsertAccomplishmentRow(archiveAccomplishment(row))
+    renderMemList()
+  })
+  wrap.querySelectorAll('[data-mem-polish]').forEach(b=>b.onclick=()=>memPolish(b.dataset.memPolish))
+  wrap.querySelectorAll('[data-mem-promote]').forEach(b=>b.onclick=()=>memPromote(b.dataset.memPromote))
+}
+
+async function memPolish(id){
+  $('mem_err').textContent=''
+  const row=MEM_ROWS.find(x=>x.id===id); if(!row) return
+  const b=document.querySelector(`[data-mem-polish="${id}"]`)
+  const o=b?.textContent; if(b){ b.disabled=true; b.textContent='…' }
+  try{
+    let data=null
+    try{ data=await invokeRewrite({ mode:'bullet', bullet_text:row.body_current, jd_text:'Polish wording only. Keep every number, entity, and ownership claim identical.' }) }
+    catch(e){ $('mem_err').textContent=await fnMsg(e); return }
+    if(data?.error){ $('mem_err').textContent=mapRewriteSoftError(data.error,data)||data.error; return }
+    const cand=(data?.rewritten||'').trim().replace(/^[-•]\s*/,'')
+    if(!cand){ $('mem_err').textContent='Model returned nothing'; return }
+    const { row: next, drift } = setPolishCandidate(row, cand, { model: data.method||'ai' })
+    await upsertAccomplishmentRow(next)
+    MEM_POLISH_ID=id
+    $('mem_polish').classList.remove('hidden')
+    $('mem_polish_meta').textContent = drift.blocked
+      ? `⚠ ${drift.reason} — Accept blocked until you edit the candidate.`
+      : `Candidate via ${next.polish_model||'AI'}. Accept writes a polish_accept revision.`
+    $('mem_diff').innerHTML = '<div><b>Current</b></div><div style="margin:4px 0 10px">'+esc(row.body_current)+'</div><div><b>Diff</b></div><div>'+renderMemDiff(row.body_current, cand)+'</div>'
+    $('mem_accept').disabled = !!drift.blocked
+  } finally { if(b){ b.disabled=false; b.textContent=o } }
+}
+$('mem_accept')?.addEventListener('click', async ()=>{
+  const row=MEM_ROWS.find(x=>x.id===MEM_POLISH_ID); if(!row) return
+  try{
+    const next=acceptPolish(row)
+    await upsertAccomplishmentRow(next)
+    $('mem_polish').classList.add('hidden'); MEM_POLISH_ID=null
+    renderMemList(); logEvent('memory_polish_accept', null, {})
+  }catch(e){ $('mem_err').textContent=e.message }
+})
+$('mem_reject')?.addEventListener('click', async ()=>{
+  const row=MEM_ROWS.find(x=>x.id===MEM_POLISH_ID); if(!row) return
+  await upsertAccomplishmentRow(rejectPolish(row))
+  $('mem_polish').classList.add('hidden'); MEM_POLISH_ID=null
+  renderMemList()
+})
+
+async function memPromote(id){
+  $('mem_err').textContent=''
+  const row=MEM_ROWS.find(x=>x.id===id); if(!row) return
+  if(!PROFILE?.resume_struct?.roles?.length){
+    $('mem_err').textContent='Parse your resume in the builder first (or Settings), then promote into a role.'
+    return
+  }
+  fillMemRoleSelect()
+  let roleId=row.role_id || $('mem_role')?.value || ''
+  if(!roleId){
+    roleId=prompt('Enter resume role id to promote into (or pick in the role dropdown first and re-try):', '') || ''
+  }
+  if(!roleId){ $('mem_err').textContent='Pick a resume role before promoting.'; return }
+  try{
+    const result=promoteAccomplishment(PROFILE, row, { role_id: roleId })
+    await persistResumeSync(result)
+    await upsertAccomplishmentRow(result.accomplishment)
+    // Promotion does NOT update last_entry_at
+    renderMemList()
+    logEvent('memory_promote', null, { role_id: roleId })
+    alert('Promoted with bidirectional source links. Structured resume marked for reconcile.')
+  }catch(e){ $('mem_err').textContent=e.message }
+}
+
+async function openMemoryModal(){
+  $('mem_err').textContent=''
+  await loadAccomplishments()
+  fillMemRoleSelect()
+  renderMemList()
+  $('memoryModal').classList.remove('hidden')
+}
+$('memorybtn')?.addEventListener('click', ()=>openMemoryModal())
+$('mem_close')?.addEventListener('click', ()=>$('memoryModal').classList.add('hidden'))
+$('mem_save')?.addEventListener('click', async ()=>{
+  $('mem_err').textContent=''
+  try{
+    const row=createAccomplishment($('mem_body').value, {
+      role_id: $('mem_role').value||null,
+      employer: $('mem_employer').value.trim()||null,
+      project: $('mem_project').value.trim()||null,
+    })
+    await upsertAccomplishmentRow(row)
+    // New capture only — updates cadence last_entry_at
+    const next=recordNewCapture({
+      bullet_memory_cadence: PROFILE?.bullet_memory_cadence,
+      last_entry_at: PROFILE?.last_entry_at,
+      snoozed_until: PROFILE?.snoozed_until,
+      cadence_anchor: PROFILE?.cadence_anchor,
+    })
+    if(PROFILE){
+      PROFILE.last_entry_at=next.last_entry_at
+      try{ await sb.from('mt_profiles').update({ last_entry_at: PROFILE.last_entry_at }).eq('owner',ME.id) }catch(_e){}
+    }
+    $('mem_body').value=''; $('mem_employer').value=''; $('mem_project').value=''
+    renderMemList()
+    paintCadenceNudge()
+    logEvent('memory_capture', null, {})
+  }catch(e){ $('mem_err').textContent=e.message }
+})
+
+function renderPfList(){
+  const wrap=$('pf_list'); if(!wrap) return
+  const rows=(PF_ROWS||[]).filter(r=>!r.archived_at)
+  if(!rows.length){ wrap.innerHTML='<p class="muted" style="font-size:13px">No portfolio items yet.</p>'; return }
+  wrap.innerHTML=rows.map(r=>`<div class="card" style="padding:12px;margin:8px 0">
+    <div style="font-weight:600">${esc(r.title)} <span class="muted" style="font-weight:400">· ${esc(r.item_type)} · ${esc(r.visibility)}</span></div>
+    <div style="font-size:13px;margin-top:4px;line-height:1.45">${esc(r.summary||r.body_current||'')}</div>
+    ${r.url?`<div class="muted" style="font-size:12px;margin-top:4px">${esc(r.url)}</div>`:''}
+    <div class="row" style="margin-top:8px">
+      <button type="button" class="btn sm primary" data-pf-promote="${esc(r.id)}">Promote to resume</button>
+      <button type="button" class="btn sm" data-pf-vis="${esc(r.id)}">${r.visibility==='resume_ok'?'Make private':'Mark resume_ok'}</button>
+      <button type="button" class="btn sm danger-ghost" data-pf-arch="${esc(r.id)}">Archive</button>
+    </div>
+  </div>`).join('')
+  wrap.querySelectorAll('[data-pf-promote]').forEach(b=>b.onclick=async()=>{
+    const item=PF_ROWS.find(x=>x.id===b.dataset.pfPromote); if(!item) return
+    try{
+      if(!PROFILE.resume_struct) PROFILE.resume_struct={ roles:[], projects:[], skills:[], education:[], certs:[] }
+      const result=promotePortfolio(PROFILE, item)
+      await persistResumeSync(result)
+      await upsertPortfolioRow(result.portfolio)
+      renderPfList()
+      alert('Portfolio promoted into Projects with source links.')
+    }catch(e){ $('pf_err').textContent=e.message }
+  })
+  wrap.querySelectorAll('[data-pf-vis]').forEach(b=>b.onclick=async()=>{
+    const item=PF_ROWS.find(x=>x.id===b.dataset.pfVis); if(!item) return
+    const next=editPortfolioItem(item, { visibility: item.visibility==='resume_ok'?'private':'resume_ok' })
+    await upsertPortfolioRow(next); renderPfList()
+  })
+  wrap.querySelectorAll('[data-pf-arch]').forEach(b=>b.onclick=async()=>{
+    const item=PF_ROWS.find(x=>x.id===b.dataset.pfArch); if(!item) return
+    await upsertPortfolioRow(archivePortfolioItem(item)); renderPfList()
+  })
+}
+async function openPortfolioModal(){
+  $('pf_err').textContent=''
+  await loadPortfolioRows()
+  renderPfList()
+  $('portfolioModal').classList.remove('hidden')
+}
+$('portfoliobtn')?.addEventListener('click', ()=>openPortfolioModal())
+$('pf_close')?.addEventListener('click', ()=>$('portfolioModal').classList.add('hidden'))
+$('pf_save')?.addEventListener('click', async ()=>{
+  $('pf_err').textContent=''
+  try{
+    const item=createPortfolioItem({
+      title: $('pf_title').value,
+      item_type: $('pf_type').value,
+      visibility: $('pf_vis').value,
+      url: $('pf_url').value.trim()||null,
+      summary: $('pf_summary').value,
+      tags: list($('pf_tags').value),
+    })
+    await upsertPortfolioRow(item)
+    $('pf_title').value=''; $('pf_url').value=''; $('pf_summary').value=''; $('pf_tags').value=''
+    renderPfList()
+  }catch(e){ $('pf_err').textContent=e.message }
+})
+
+function paintAdvisorBrief(brief){
+  const el=$('advisor_out'); if(!el) return
+  const sk=(brief.suggested_next_skills||[]).map(s=>`<li>${esc(s.text||s)} <span class="chip">model judgment</span></li>`).join('')
+  const gaps=(brief.demand_gaps||[]).map(g=>`<li>${esc(typeof g==='string'?g:g.text||JSON.stringify(g))}</li>`).join('')
+  const moves=(brief.resume_portfolio_moves||[]).map(m=>`<li>${esc(typeof m==='string'?m:m.text||JSON.stringify(m))}</li>`).join('')
+  const plan=(brief.acquisition_plan||[]).map(m=>`<li>${esc(typeof m==='string'?m:m.text||JSON.stringify(m))}</li>`).join('')
+  el.innerHTML=`
+    ${brief.free_tier?'<p class="muted" style="font-size:12px">Shorter free-tier brief.</p>':''}
+    <div class="eval-box"><h4>Market read <span class="chip">model judgment</span></h4><p>${esc(brief.market_read?.text||'')}</p></div>
+    <div class="eval-box"><h4>Observed in your materials / fit</h4><p>${esc(typeof brief.fit==='string'?brief.fit:JSON.stringify(brief.observed_in_materials||brief.fit||''))}</p></div>
+    <div class="eval-box"><h4>Demand gaps</h4><ul>${gaps||'<li class="muted">None listed</li>'}</ul></div>
+    <div class="eval-box"><h4>Suggested next skills <span class="chip">not your experience</span></h4><ul>${sk||'<li class="muted">None</li>'}</ul></div>
+    <div class="eval-box"><h4>Acquisition plan</h4><ul>${plan||'<li class="muted">None</li>'}</ul></div>
+    <div class="eval-box"><h4>Resume / portfolio moves</h4><ul>${moves||'<li class="muted">None</li>'}</ul>
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="btn sm" id="advisor_to_mem">Open Memory</button>
+        <button type="button" class="btn sm" id="advisor_to_pf">Open Portfolio</button>
+      </div>
+    </div>
+    ${brief.raw_text?`<details style="margin-top:10px"><summary>Raw</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(brief.raw_text)}</pre></details>`:''}`
+  $('advisor_to_mem')?.addEventListener('click', ()=>{ $('advisorModal').classList.add('hidden'); openMemoryModal() })
+  $('advisor_to_pf')?.addEventListener('click', ()=>{ $('advisorModal').classList.add('hidden'); openPortfolioModal() })
+}
+
+async function openAdvisorModal(){
+  $('advisor_err').textContent=''
+  const byo=!!(PROFILE?.ai_key||PROFILE?.kimi_key||loadOpenaiPrefs().key)
+  $('advisor_free_banner')?.classList.toggle('hidden', byo)
+  $('advisorModal').classList.remove('hidden')
+}
+$('advisorbtn')?.addEventListener('click', ()=>openAdvisorModal())
+$('advisor_close')?.addEventListener('click', ()=>$('advisorModal').classList.add('hidden'))
+$('advisor_run')?.addEventListener('click', async ()=>{
+  $('advisor_err').textContent=''
+  const b=$('advisor_run'), o=b.textContent; b.disabled=true; b.textContent='Advising…'
+  try{
+    await loadAccomplishments(); await loadPortfolioRows()
+    const ctx=buildAdvisorContext({ accomplishments:MEM_ROWS, portfolio:PF_ROWS, profile:PROFILE||{},
+      checkedIds: MEM_ROWS.filter(x=>x.checked).map(x=>x.id),
+      jd: (PROFILE?.target_titles||[]).join(' '),
+      gaps: PROFILE?.keywords||[],
+    })
+    const byo=!!(PROFILE?.ai_key||PROFILE?.kimi_key||loadOpenaiPrefs().key)
+    const userMsg=`Build a CareerOps advisor brief as JSON with keys: market_read, fit, demand_gaps, acquisition_plan, resume_portfolio_moves, suggested_next_skills, observed_in_materials.
+Materials (truth):\n${JSON.stringify(ctx.observed_materials).slice(0, byo?12000:5000)}`
+    let text=''
+    if(preferClientOpenai()||PROFILE?.ai_key||PROFILE?.kimi_key){
+      try{
+        const out=await openaiChat({ system:advisorSystemPrompt(), messages:[{role:'user',content:userMsg}], max_tokens:byo?2500:900, json:true })
+        text=out.text
+      }catch(_e){
+        const data=await invokeChat([{role:'user',content:advisorSystemPrompt()+'\n\n'+userMsg}])
+        if(data.error) throw new Error(mapRewriteSoftError(data.error,data)||data.error)
+        text=data.reply||''
+      }
+    }else{
+      const data=await invokeChat([{role:'user',content:advisorSystemPrompt()+'\n\n'+userMsg}])
+      if(data.error){ $('advisor_err').textContent=mapRewriteSoftError(data.error,data)||data.error; return }
+      text=data.reply||''
+    }
+    const brief=normalizeAdvisorBrief(text, { free_tier:!byo, model: preferClientOpenai()?'openai-compat':(PROFILE?.ai_key?'claude':'free') })
+    paintAdvisorBrief(brief)
+    const row=advisorReportRow(brief, null)
+    row.owner=ME?.id||null
+    try{ await sb.from('mt_reports').insert(row) }catch(_e){}
+    logEvent('advisor_brief', null, { free_tier:!byo })
+  }catch(e){ $('advisor_err').textContent=e.message||String(e) }
+  finally{ b.disabled=false; b.textContent=o }
+})
+
+function paintCadenceNudge(){
+  const el=$('cadence_nudge'); if(!el) return
+  const state={
+    bullet_memory_cadence: PROFILE?.bullet_memory_cadence||'off',
+    cadence_anchor: PROFILE?.cadence_anchor||'1,15',
+    cadence_timezone: PROFILE?.cadence_timezone||'UTC',
+    last_entry_at: PROFILE?.last_entry_at||null,
+    snoozed_until: PROFILE?.snoozed_until||null,
+  }
+  const n=shouldNudge(state)
+  el.classList.toggle('hidden', !n.due)
+  if(n.due && PROFILE){
+    const prompted=recordPrompted(state)
+    PROFILE.last_prompted_at=prompted.last_prompted_at
+    sb.from('mt_profiles').update({ last_prompted_at: PROFILE.last_prompted_at }).eq('owner',ME.id).then(()=>{},()=>{})
+  }
+}
+$('cadence_open')?.addEventListener('click', ()=>{ $('cadence_nudge').classList.add('hidden'); openMemoryModal() })
+$('cadence_dismiss')?.addEventListener('click', ()=>$('cadence_nudge').classList.add('hidden'))
+$('cadence_snooze')?.addEventListener('click', async ()=>{
+  const until=new Date(); until.setDate(until.getDate()+7)
+  if(PROFILE){
+    PROFILE.snoozed_until=until.toISOString()
+    try{ await sb.from('mt_profiles').update({ snoozed_until: PROFILE.snoozed_until }).eq('owner',ME.id) }catch(_e){}
+  }
+  $('cadence_nudge').classList.add('hidden')
+})
+$('reconcile_ack')?.addEventListener('click', async ()=>{
+  if(!PROFILE) return
+  PROFILE.resume_reconcile_needed=false
+  try{ await sb.from('mt_profiles').update({ resume_reconcile_needed:false }).eq('owner',ME.id) }catch(_e){}
+  paintReconcileBanner()
+})
+
+/** Ranked memory lines for Generate materials (not newest-20). */
+function rankedMemoryMaterials(jd, gaps){
+  const checkedIds=MEM_ROWS.filter(x=>x.checked).map(x=>x.id)
+  const roleIds=(PROFILE?.resume_struct?.roles||[]).map(r=>r.id||stableRoleKey(r))
+  return rankForGenerate(MEM_ROWS, { jd, gaps, checkedIds, relevantRoleIds:roleIds, cap:20 })
+}
 
 </script>
 </body></html>

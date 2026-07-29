@@ -8,7 +8,7 @@ npx @telivity/careerops init
 
 ## What you get
 
-- `.agents/skills/careerops/` with modes: scan, evaluate, rank, tailor, interview, followup, outcome
+- `.agents/skills/careerops/` with modes: scan, evaluate, rank, tailor, interview, followup, outcome, advise
 - Symlinks for Claude Code / Codex / OpenCode skill folders
 - Copy of `web/config.example.js` → `web/config.js` when missing
 
@@ -16,6 +16,8 @@ npx @telivity/careerops init
 
 - Never invent experience
 - No auto-apply — you submit on the employer site
+- Bullet memory provenance + `resume_struct` canonical sync (see repo `docs/DOCTRINE_MEMORY.md`)
+- Advisor: materials-only past; market judgment labeled
 
 ## Local smoke (before publish)
 
