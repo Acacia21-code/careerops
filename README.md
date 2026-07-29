@@ -11,7 +11,7 @@
 
 ![Bullet Memory → Promote to Resume](docs/assets/memory-promote.gif)
 
-*Hero clip: capture a real accomplishment → promote it into your resume. Public-safe asset path for the demo GIF (seeded/fake profile only — see [docs/assets/](docs/assets/)).*
+*Capture a real accomplishment → promote it into your resume. Seeded demo profile only — see [docs/assets/](docs/assets/).*
 
 ## Quick start (≈5 minutes)
 
@@ -198,8 +198,7 @@ Optional free-tier secrets: `FREE_AI_ENDPOINT`, `FREE_AI_TOKEN`, `FREE_AI_MODEL`
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community norms |
 | [CHANGELOG.md](CHANGELOG.md) | Releases |
-
-Screenshots / GIFs: drop public-safe media under [`docs/assets/`](docs/assets/) (preferred) or [`docs/images/`](docs/images/) — never commit a real personal board.
+| [docs/assets/](docs/assets/) | Public-safe demo GIFs and stills |
 
 ---
 
@@ -208,4 +207,4 @@ Screenshots / GIFs: drop public-safe media under [`docs/assets/`](docs/assets/) 
 Copyright © Telivity and contributors.  
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
-Versioning follows git tags (`v1.1.0`, …). Publish: `cd packages/careerops && npm publish --access public` (or the `Release` workflow when `NPM_TOKEN` is set).
+Versioning follows git tags (`v1.2.1`, …). Root `package.json` is private; publish the CLI with `cd packages/careerops && npm publish --access public` (or the `Release` workflow when `NPM_TOKEN` is set).

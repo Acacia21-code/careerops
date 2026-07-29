@@ -2,7 +2,17 @@
 
 All notable changes to the public CareerOps repo and `@telivity/careerops` are documented here.
 
-## [Unreleased] — Career OS Phase 1
+## [1.2.1] — 2026-07-29
+
+### Added
+- Engineering-10 hardening: schema CHECKs + `updated_at` triggers, transactional promote RPCs, hosted credential vault, SPA `web/ui/*` split, Board / Memory / Portfolio / Advise section nav, pg-integration + Playwright memory-promote CI.
+- Conversion README homepage: hook, hero GIF, quick start, 30-second story, Why not ChatGPT table, career-loop mermaid, Built for, collapsed demo gallery.
+- Public-safe demo assets under [`docs/assets/`](docs/assets/) (GIFs + stills from a seeded fictional profile).
+
+### Docs
+- Removed the old “drop screenshots later” placeholder; Roadmap linked to [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## [1.2.0] — 2026-07-29
 
 ### Added
 - Bullet memory with provenance (`body_original` immutable, revisions, soft archive, bidirectional promote).

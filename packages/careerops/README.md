@@ -42,15 +42,15 @@ Ship version **tracks git tags**:
 ```bash
 # 1) Bump packages/careerops/package.json + CHANGELOG.md, commit
 # 2) Tag and push
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.1
+git push origin v1.2.1
 
 # 3) Publish (or rely on .github/workflows/release.yml + NPM_TOKEN)
 cd packages/careerops
 npm publish --access public
 
 # 4) GitHub Release (needs gh auth)
-gh release create v1.1.0 --title "v1.1.0" --notes-file ../../CHANGELOG.md
+gh release create v1.2.1 --title "v1.2.1" --notes-file ../../CHANGELOG.md
 ```
 
 ## Related
