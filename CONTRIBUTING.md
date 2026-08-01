@@ -39,6 +39,8 @@ Never commit `web/config.js`.
 
 ## Pull requests
 
+**House rule: no assignments.** We do not assign issues. Comment which issue you’re taking if you want, then open a PR. Clean PRs get merged; no PR means the issue stays open for anyone.
+
 1. Open an issue for non-trivial changes (bug / feature).
 2. Branch from `main`.
 3. Keep diffs focused. Match existing style in `web/`.
