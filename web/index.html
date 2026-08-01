@@ -5,13 +5,32 @@
 <!-- match-score-fix: 2026-07-23-v3-builder-hero -->
 <!-- gaps-ux-fix: 2026-07-23-v2-materials-insert -->
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZXKVCL5TGG"></script>
+<!-- Load local configuration if present -->
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-ZXKVCL5TGG');
+  window.CAREEROPS_CONFIG = window.CAREEROPS_CONFIG || {};
+</script>
+<script src="config.js"></script>
+
+<script>
+  const analyticsId = window.CAREEROPS_CONFIG?.analyticsId;
+
+  if (analyticsId) {
+    const gaScript = document.createElement("script");
+    gaScript.async = true;
+    gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${analyticsId}`;
+    document.head.appendChild(gaScript);
+
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    window.gtag = gtag;
+
+    gtag("js", new Date());
+    gtag("config", analyticsId);
+  }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
