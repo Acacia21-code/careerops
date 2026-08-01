@@ -13,8 +13,15 @@ Set:
 - `supabaseUrl` — your Supabase project URL  
 - `supabaseAnonKey` — anon or publishable key (safe for browser; protect data with RLS)  
 - `donateUrl` — optional  
+- `analyticsId` — optional Google Analytics Measurement ID (for example `G-XXXXXXXXXX`). Leave empty to disable analytics.
 
 `config.js` is gitignored in the public repo.
+
+### Google Analytics (optional)
+
+To enable Google Analytics on your deployment, set `analyticsId` in `web/config.js`.
+
+If `analyticsId` is left empty, no Google Analytics script is loaded.
 
 ## Deploy
 
