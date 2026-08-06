@@ -98,7 +98,7 @@ npx @telivity/careerops init
 
 ≈5 minutes. Done.
 
-Self-host, schema, deploy, and agent skill details: [docs/](docs/) · [CONTRIBUTING.md](CONTRIBUTING.md) · [web/README.md](web/README.md)
+Self-host, schema, deploy, and agent skill details: [docs/](docs/) · [CONTRIBUTING.md](CONTRIBUTING.md) · [web/README.md](web/README.md) · [web/SCHEMA.md](web/SCHEMA.md)
 
 ---
 
@@ -112,7 +112,7 @@ Technical depth lives in `docs/` — not on the critical path for starring or tr
 | Security model | [SECURITY.md](SECURITY.md) · [supabase/README.md](supabase/README.md) |
 | Resume provenance | [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md) |
 | Transactional promotion | [docs/DOCTRINE_MEMORY.md](docs/DOCTRINE_MEMORY.md#promotion--bidirectional) |
-| Database schema | [supabase/README.md](supabase/README.md) · [`supabase/schema.sql`](supabase/schema.sql) |
+| Database schema | [supabase/README.md](supabase/README.md) · [`supabase/schema.sql`](supabase/schema.sql) · [SPA cheat-sheet](web/SCHEMA.md) |
 | Plugin system | [docs/PLUGINS.md](docs/PLUGINS.md) |
 | AI architecture / skill | [docs/SKILL.md](docs/SKILL.md) · [docs/CHAINS.md](docs/CHAINS.md) |
 | Local-first design | [docs/LOCAL_FIRST.md](docs/LOCAL_FIRST.md) |
