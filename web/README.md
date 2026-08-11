@@ -60,4 +60,4 @@ Pure Career OS helpers used by the SPA live in `lib/` (bullet memory, cadence, r
 | `ai-free` | Settings screen, to show remaining free-tier daily uses. | **Optional** — cosmetic only; affects the usage display, not functionality. |
 | `humanize` | **Humanize wording** button. | **Optional** — only used if the user has connected an ai-text-humanizer.com account. |
 
-**Minimal viable install:** none of the 7 functions are strictly required. Core board operations (add/drag/tag roles, verdicts, outcomes, notes) call Supabase tables directly (`sb.from('mt_roles')`, etc.), not Edge Functions. Search and JD auto-fetch need `run-search-mt` / `fetch-jd`; AI scoring/tailoring/chat need the rest (or a BYO key to skip them entirely).
+**Minimal viable install:** none of the 7 functions are strictly required. Core board operations (add/drag/tag roles, verdicts, outcomes, notes) call Supabase tables directly (`sb.from('mt_roles')`, etc.), not Edge Functions. Search and JD auto-fetch need `run-search-mt` / `fetch-jd`; AI scoring/tailoring/chat need the rest (or a BYO key to skip them entirely)
