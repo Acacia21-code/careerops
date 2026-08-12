@@ -48,16 +48,18 @@ Pure Career OS helpers used by the SPA live in `lib/` (bullet memory, cadence, r
 
 ## Edge functions
 
-> **Source note:** the implementations of these functions are **not included in this public repo**. `web/ui/state.mjs` calls them by name via `sb.functions.invoke(...)`, assuming a Supabase project with matching Edge Functions deployed. If you're self-hosting, you'll need to write and deploy your own implementations (or point at a hosted backend that provides them) — see `web/config.js` for wiring the Supabase URL/anon key.
+> **Source note:** `web/ui/state.mjs` and `web/ui/settings.mjs` call these by name via `sb.functions.invoke(...)`. Reference implementations for most live under [`supabase/functions/`](../supabase/functions/README.md) — deploy those (or your own equivalents) against your Supabase project. **`fetch-jd` and `humanize` are not in this public repo**; self-hosters must supply those (or skip the UI features that call them). Wire the project via `web/config.js`.
 
 | Function | When the UI calls it | Required for a board-only install? |
 |---|---|---|
 | `run-search-mt` | User clicks **Run job search** (or the onboarding "Run my first search") — scans configured company career boards for matching roles. | **Optional.** Board CRUD works without it; you can add roles manually via **＋ Add role**. |
 | `fetch-jd` | Auto-loads a job description from a posting URL — when opening a role's drawer/panel, on ATS "liveness" checks for a card, and after adding a role via LinkedIn/URL search. | **Optional.** You can paste the JD manually via "Edit / paste" instead. |
-| `resume-match` | User clicks **Check my match** to score a resume against a JD. | **Optional if** a BYO OpenAI-compatible key is set in Settings (the match runs client-side instead). **Required** for match scoring otherwise. |
-| `resume-rewrite` | **Tailor resume**, cover letter, and single-bullet rewrite actions. | Same as above — optional with a BYO key, otherwise required for AI tailoring. |
-| `chat` | The in-app AI chat / advisor brief. | Same bypass logic — optional with a BYO key, otherwise required for chat/advisor. |
-| `ai-free` | Settings screen, to show remaining free-tier daily uses. | **Optional** — cosmetic only; affects the usage display, not functionality. |
+| `resume-match` | User clicks **Check my match** to score a resume against a JD. | **Optional if** a BYO OpenAI-compatible key is set in Settings (the match runs client-side instead). **Required** for match scoring otherwise. Claude/Kimi keys on file still go through this function. |
+| `resume-rewrite` | **Tailor resume**, cover letter, and single-bullet rewrite actions. | Same as above — optional with a BYO OpenAI-compat key, otherwise required for AI tailoring. |
+| `chat` | Advise / in-app assistant follow-ups. | Same bypass logic — optional with a BYO OpenAI-compat key, otherwise required for chat/advisor. |
+| `ai-free` | Settings screen, to show remaining free-tier daily uses. | **Optional** — cosmetic for the SPA usage display; free-tier LLM serving is configured server-side. |
 | `humanize` | **Humanize wording** button. | **Optional** — only used if the user has connected an ai-text-humanizer.com account. |
+| `upsert_provider_secret` | Settings save path when storing Claude / Kimi / humanizer secrets. | **Optional.** Without it, Settings falls back to plaintext profile columns for self-host. |
+| `clear_provider_secret` | Settings when removing a stored provider secret. | **Optional.** Same plaintext fallback as above. |
 
-**Minimal viable install:** none of the 7 functions are strictly required. Core board operations (add/drag/tag roles, verdicts, outcomes, notes) call Supabase tables directly (`sb.from('mt_roles')`, etc.), not Edge Functions. Search and JD auto-fetch need `run-search-mt` / `fetch-jd`; AI scoring/tailoring/chat need the rest (or a BYO key to skip them entirely)
+**Minimal viable install:** none of the 9 functions are strictly required. Core board operations (add/drag/tag roles, verdicts, outcomes, notes) call Supabase tables directly (`sb.from('mt_roles')`, etc.), not Edge Functions. Search and JD auto-fetch need `run-search-mt` / `fetch-jd`; AI scoring/tailoring/chat need the rest (or a BYO OpenAI-compat key to skip those three client-side); secret vault helpers are only needed if you want encrypted Settings storage instead of plaintext profile columns.
