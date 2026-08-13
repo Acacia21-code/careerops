@@ -34,10 +34,10 @@ import {
 import {
   normalizeInterviewEvent, followupDueForRole, buildFollowupStrip, interviewReportRow,
 } from '../web/lib/interview-events.mjs'
-import { buildOfferCompare, formatMoney, parseMoneyInput } from '../web/lib/offer-compare.mjs'
+import { buildOfferCompare, formatMoney, offerFieldsFromOutcome, parseMoneyInput } from '../web/lib/offer-compare.mjs'
 import { buildVersionTimeline, timelineLines } from '../web/lib/version-timeline.mjs'
 import { normalizeContact, logTouch, filterContacts, channelFromDraftKind } from '../web/lib/contacts-crm.mjs'
-import { normalizeAshbyCompensation, roleCompFieldsFromAshby, postedCompLabel } from '../web/lib/ats-comp.mjs'
+import { normalizeAshbyCompensation, normalizeCompRange, roleCompFieldsFromAshby, postedCompLabel } from '../web/lib/ats-comp.mjs'
 import { buildSalaryCompare, normalizeTargetBand, targetBandLabel } from '../web/lib/salary-compare.mjs'
 import {
   classifyEnrichUrl, proposeEnrichCandidates, acceptEnrichCandidate,
@@ -629,6 +629,164 @@ check('salary compare labels gaps without inventing market average', () => {
   assert.match(cmp.doctrine, /not market averages/i)
   assert.equal(normalizeTargetBand({}).min, null)
   assert.match(targetBandLabel({ min: 100000, max: 120000, currency: 'USD' }), /100/)
+})
+
+check('target band: min-only / max-only / both-empty labels', () => {
+  assert.deepEqual(normalizeTargetBand({ target_band_min: 160000 }), { min: 160000, max: null, currency: 'USD' })
+  assert.deepEqual(normalizeTargetBand({ target_band_max: 180000 }), { min: null, max: 180000, currency: 'USD' })
+  assert.deepEqual(normalizeTargetBand({}), { min: null, max: null, currency: 'USD' })
+  assert.deepEqual(normalizeTargetBand(null), { min: null, max: null, currency: 'USD' })
+  // nested target_band + string inputs normalize too
+  assert.deepEqual(
+    normalizeTargetBand({ target_band: { min: '160000', max: '180000', currency: 'EUR' } }),
+    { min: 160000, max: 180000, currency: 'EUR' }
+  )
+  assert.equal(targetBandLabel({ min: 160000, max: null, currency: 'USD' }), 'from $160,000')
+  assert.equal(targetBandLabel({ min: null, max: 180000, currency: 'USD' }), 'up to $180,000')
+  assert.equal(targetBandLabel({ min: null, max: null, currency: 'USD' }), '')
+})
+
+check('posted band: min-only / max-only / both-empty', () => {
+  assert.equal(normalizeCompRange({ min: 140000 }).max, null)
+  assert.equal(normalizeCompRange({ min: 140000 }).label, 'from USD 140k')
+  assert.equal(normalizeCompRange({ max: 160000 }).min, null)
+  assert.equal(normalizeCompRange({ max: 160000 }).label, 'up to USD 160k')
+  assert.equal(normalizeCompRange({}), null)
+  assert.equal(normalizeCompRange(null), null)
+  // buildSalaryCompare surfaces partial posted rows without inventing the missing bound
+  const cmp = buildSalaryCompare({
+    profile: { target_band_min: 150000 },
+    role: { comp_range: { max: 155000, currency: 'USD' } },
+    outcome: null,
+  })
+  const posted = cmp.rows.find(r => r.key === 'posted')
+  assert.equal(posted.min, null)
+  assert.equal(posted.max, 155000)
+})
+
+check('salary compare gaps on partial bands, no fabricated numbers', () => {
+  // min-only target vs max-only posted → posted_below_target
+  const below = buildSalaryCompare({
+    profile: { target_band_min: 160000 },
+    role: { comp_range: { max: 155000, currency: 'USD' } },
+    outcome: null,
+  })
+  assert.equal(below.has_any, true)
+  assert.ok(below.gaps.some(g => g.kind === 'posted_below_target'))
+  assert.equal(below.gaps.find(g => g.kind === 'posted_below_target').delta, -5000)
+
+  // max-only target vs min-only posted → posted_above_target
+  const above = buildSalaryCompare({
+    profile: { target_band_max: 160000 },
+    role: { comp_range: { min: 170000, currency: 'USD' } },
+    outcome: null,
+  })
+  assert.ok(above.gaps.some(g => g.kind === 'posted_above_target'))
+
+  // both-empty everywhere → nothing invented, has_any false
+  const empty = buildSalaryCompare({ profile: {}, role: {}, outcome: null })
+  assert.equal(empty.has_any, false)
+  assert.deepEqual(empty.gaps, [])
+  assert.equal(empty.rows[0].value, '— (set in Settings)')
+  assert.equal(empty.rows[1].value, '— (not on posting)')
+})
+
+check('helpers never fabricate a market average from bands', () => {
+  const target = { target_band_min: 100000, target_band_max: 140000, target_band_currency: 'USD' }
+  const role = { comp_range: { min: 90000, max: 110000, currency: 'USD' } }
+  const cmp = buildSalaryCompare({ profile: target, role, outcome: null })
+  assert.match(cmp.doctrine, /not market averages/i)
+  // rows carry the exact user/posted bounds — never a midpoint passed off as truth
+  const t = cmp.rows.find(r => r.key === 'target')
+  const p = cmp.rows.find(r => r.key === 'posted')
+  assert.equal(t.min, 100000)
+  assert.equal(t.max, 140000)
+  assert.equal(p.min, 90000)
+  assert.equal(p.max, 110000)
+  assert.deepEqual(cmp.gaps, []) // overlapping bands → no invented gap
+
+  // offer gap labels always attribute numbers to the user's own data, never the market
+  const offerBelow = buildSalaryCompare({
+    profile: target,
+    role,
+    outcome: { kind: 'offer', base: 85000, currency: 'USD' },
+  })
+  assert.ok(offerBelow.gaps.some(g => g.kind === 'offer_below_target' && /your numbers only/i.test(g.label)))
+  assert.ok(offerBelow.gaps.some(g => g.kind === 'offer_below_posted' && /posted vs your offer/i.test(g.label)))
+  for (const g of offerBelow.gaps) {
+    assert.doesNotMatch(g.kind, /average/i)
+    if (g.kind.startsWith('posted_')) assert.match(g.label, /not a market average/i)
+    if (g.kind.startsWith('offer_')) assert.match(g.label, /your numbers only|posted vs your offer/i)
+  }
+})
+
+check('currency: missing defaults to USD, mismatch stays labeled per row', () => {
+  // missing currency on every input → all rows USD, no invention
+  const noCur = buildSalaryCompare({
+    profile: { target_band_min: 100000 },
+    role: { comp_range: { min: 90000, max: 110000 } },
+    outcome: { kind: 'offer', base: 95000 },
+  })
+  for (const row of noCur.rows) assert.equal(row.currency, 'USD')
+
+  // mismatch keeps each row's own currency label — no silent conversion
+  const mix = buildSalaryCompare({
+    profile: { target_band_min: 200000, target_band_max: 220000, target_band_currency: 'EUR' },
+    role: { comp_range: { min: 180000, max: 210000, currency: 'USD', label: 'USD 180k – 210k' } },
+    outcome: { kind: 'offer', base: 190000, currency: 'GBP' },
+  })
+  const t = mix.rows.find(r => r.key === 'target')
+  const p = mix.rows.find(r => r.key === 'posted')
+  const o = mix.rows.find(r => r.key === 'offer')
+  assert.match(t.value, /€200,000/)
+  assert.match(o.value, /£190,000/)
+  assert.equal(p.currency, 'USD')
+  assert.equal(o.currency, 'GBP')
+
+  // formatMoney shows the currency symbol/code clearly, never a fabricated number
+  assert.equal(formatMoney(150000, 'USD'), '$150,000')
+  assert.equal(formatMoney(150000, ''), '$150,000')
+  const xyz = formatMoney(150000, 'XYZ')
+  assert.match(xyz, /XYZ/)
+  assert.match(xyz, /150,000/)
+  assert.equal(formatMoney(null), '—')
+  assert.equal(formatMoney(''), '—')
+  assert.equal(formatMoney(Number.NaN), '—')
+})
+
+check('parseMoneyInput accepts 150k / separators / spacing, rejects junk', () => {
+  assert.equal(parseMoneyInput('150k'), 150000)
+  assert.equal(parseMoneyInput('150,000'), 150000)
+  assert.equal(parseMoneyInput('150000'), 150000)
+  assert.equal(parseMoneyInput('  $150k  '), 150000)
+  assert.equal(parseMoneyInput(''), null)
+  assert.equal(parseMoneyInput('  '), null)
+  assert.equal(parseMoneyInput('nope'), null)
+  assert.equal(parseMoneyInput('150k USD'), null) // units in prose are not parsed
+  assert.equal(parseMoneyInput(null), null)
+})
+
+check('offer compare: structured fields vs unstructured notes, no parsing of notes', () => {
+  const cmp = buildOfferCompare([
+    {
+      roleId: 'a', company: 'Acme', title: 'Staff Engineer',
+      outcome: { kind: 'offer', base: 210000, bonus: 25000, currency: 'USD', equity_notes: '50k RSU', remote: 'remote', deadline: '2026-08-31' },
+    },
+    {
+      roleId: 'b', company: 'Beta', title: 'Staff Engineer',
+      outcome: { kind: 'offer', note: 'verbally offered 200k base, 10% bonus, hybrid, equity TBD' },
+    },
+  ])
+  assert.equal(cmp.columns.length, 2)
+  assert.equal(cmp.empty, false)
+  assert.equal(cmp.rows.find(r => r.key === 'base').values[0], '$210,000')
+  assert.equal(cmp.rows.find(r => r.key === 'base').values[1], '—') // note-only → no fabricated number
+  assert.equal(cmp.rows.find(r => r.key === 'bonus').values[1], '—')
+  assert.equal(cmp.rows.find(r => r.key === 'note').values[1], 'verbally offered 200k base, 10% bonus, hybrid, equity TBD')
+  // free-text notes are never mined for invented structured numbers
+  const parsed = offerFieldsFromOutcome({ kind: 'offer', note: 'base 200k' })
+  assert.equal(parsed.base, null)
+  assert.equal(parsed.bonus, null)
 })
 
 check('board pack v5 contacts + comp + target band + upsert plan strips keys', () => {
