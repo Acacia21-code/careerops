@@ -32,7 +32,7 @@ const boards = mergeBoardSources(registry, profile.ats_boards || {})
 
 ## Board pack
 
-Packs stay on `schema_version` 4. Optional additive `extensions`:
+Packs use `schema_version` 5. Optional additive `extensions`:
 
 ```json
 {
